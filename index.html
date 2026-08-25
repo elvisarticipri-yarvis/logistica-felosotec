@@ -35,7 +35,7 @@
     const { useState, useEffect } = React;
 
     // =========================================================================
-    // CONFIGURACIÓN DE FIREBASE (REEMPLAZA CON TUS CREDENCIALES DE CONSOLA)
+    // CONFIGURACIÓN DE FIREBASE (FELOSOTEC PROD)
     // =========================================================================
     const FIREBASE_CONFIG = {
          apiKey: "AIzaSyCIM9dt9BMEdYvfVeGhhsv3MSlu9FmIZzI",
@@ -46,7 +46,6 @@
          appId: "1:319182025257:web:ee4cb0593fb37599566238"
     };
 
-    // Inicializar Firebase
     let db = null;
     let firebaseHabilitado = false;
     try {
@@ -104,13 +103,11 @@
     };
 
     function App() {
-      // Estado de Usuarios sincronizado con Firestore
       const [usuarios, setUsuarios] = useState(() => {
         const u = localStorage.getItem('FELOSOTEC_USUARIOS_AUTH_V3');
         return u ? JSON.parse(u) : USUARIOS_INICIALES;
       });
 
-      // Estado de Sesión
       const [usuarioAutenticado, setUsuarioAutenticado] = useState(() => {
         const s = localStorage.getItem('FELOSOTEC_AUTH_SESSION_V3');
         return s ? JSON.parse(s) : null;
@@ -120,57 +117,24 @@
       const [loginPass, setLoginPass] = useState('');
       const [errorLogin, setErrorLogin] = useState('');
 
-      // Estado de Órdenes sincronizado en tiempo real
       const [ordenes, setOrdenes] = useState(() => {
         const o = localStorage.getItem('FELOSOTEC_ORDENES_AUTH_V3');
         return o ? JSON.parse(o) : [];
       });
 
-      // --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE ---
-      useEffect(() => {
-        if (!firebaseHabilitado || !db) return;
-
-        // 1. Escuchar Usuarios
-        const unsubUsuarios = db.collection('usuarios').onSnapshot((snap) => {
-          if (snap.empty) {
-            USUARIOS_INICIALES.forEach(u => {
-              db.collection('usuarios').doc(u.id).set(u);
-            });
-          } else {
-            const listU = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setUsuarios(listU);
-            localStorage.setItem('FELOSOTEC_USUARIOS_AUTH_V3', JSON.stringify(listU));
-          }
-        }, (err) => console.error("Error usuarios Firestore:", err));
-
-        // 2. Escuchar Órdenes OIT
-        const unsubOrdenes = db.collection('ordenes_oit').onSnapshot((snap) => {
-          const listO = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setOrdenes(listO);
-          localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V3', JSON.stringify(listO));
-        }, (err) => console.error("Error órdenes Firestore:", err));
-
-        return () => {
-          unsubUsuarios();
-          unsubOrdenes();
-        };
-      }, []);
-
-      useEffect(() => {
-        if (usuarioAutenticado) {
-          localStorage.setItem('FELOSOTEC_AUTH_SESSION_V3', JSON.stringify(usuarioAutenticado));
-        } else {
-          localStorage.removeItem('FELOSOTEC_AUTH_SESSION_V3');
-        }
-      }, [usuarioAutenticado]);
-
-      // Modales y formularios
+      // Modales
       const [mostrarModalUserAdmin, setMostrarModalUserAdmin] = useState(false);
       const [mostrarModalCrearTecnicoSupervisor, setMostrarModalCrearTecnicoSupervisor] = useState(false);
+      const [mostrarModalCambiarMiPassword, setMostrarModalCambiarMiPassword] = useState(false);
       const [usuarioEnEdicion, setUsuarioEnEdicion] = useState(null);
       const [notificacionEmailSimulada, setNotificacionEmailSimulada] = useState(null);
 
-      // Campos Usuario
+      // Cambio de contraseña propio
+      const [miPassActual, setMiPassActual] = useState('');
+      const [miPassNueva, setMiPassNueva] = useState('');
+      const [miPassConfirmar, setMiPassConfirmar] = useState('');
+
+      // Campos Usuario (Admin)
       const [userUsername, setUserUsername] = useState('');
       const [userPassword, setUserPassword] = useState('');
       const [userNombre, setUserNombre] = useState('');
@@ -215,6 +179,42 @@
 
       const tecnicos = usuarios.filter(u => u.rol === 'TECNICO_EJECUTANTE');
 
+      // --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE ---
+      useEffect(() => {
+        if (!firebaseHabilitado || !db) return;
+
+        const unsubUsuarios = db.collection('usuarios').onSnapshot((snap) => {
+          if (snap.empty) {
+            USUARIOS_INICIALES.forEach(u => {
+              db.collection('usuarios').doc(u.id).set(u);
+            });
+          } else {
+            const listU = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setUsuarios(listU);
+            localStorage.setItem('FELOSOTEC_USUARIOS_AUTH_V3', JSON.stringify(listU));
+          }
+        }, (err) => console.error("Error usuarios Firestore:", err));
+
+        const unsubOrdenes = db.collection('ordenes_oit').onSnapshot((snap) => {
+          const listO = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setOrdenes(listO);
+          localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V3', JSON.stringify(listO));
+        }, (err) => console.error("Error órdenes Firestore:", err));
+
+        return () => {
+          unsubUsuarios();
+          unsubOrdenes();
+        };
+      }, []);
+
+      useEffect(() => {
+        if (usuarioAutenticado) {
+          localStorage.setItem('FELOSOTEC_AUTH_SESSION_V3', JSON.stringify(usuarioAutenticado));
+        } else {
+          localStorage.removeItem('FELOSOTEC_AUTH_SESSION_V3');
+        }
+      }, [usuarioAutenticado]);
+
       useEffect(() => {
         if (tecnicos.length > 0 && !tecnicoAsignadoId) {
           setTecnicoAsignadoId(tecnicos[0].id);
@@ -225,7 +225,7 @@
         setNotificacionEmailSimulada({ remitente, para, cc, asunto, mensaje, timestamp: formatearFechaHora() });
       };
 
-      // --- AUTENTICACIÓN (ACEPTA TANTO USERNAME COMO EMAIL) ---
+      // --- LOGIN ---
       const handleLogin = (e) => {
         e.preventDefault();
         const entrada = loginUser.trim().toLowerCase();
@@ -247,7 +247,38 @@
         setUsuarioAutenticado(null);
       };
 
-      // --- MÉTODOS DE BASE DE DATOS (FIRESTORE CON FALLBACK LOCAL) ---
+      // --- CAMBIAR MI PROPIA CONTRASEÑA ---
+      const guardarMiNuevaPassword = async (e) => {
+        e.preventDefault();
+        if (usuarioAutenticado.password !== miPassActual) {
+          return alert('La contraseña actual ingresada es incorrecta.');
+        }
+        if (miPassNueva.length < 4) {
+          return alert('La nueva contraseña debe tener al menos 4 caracteres.');
+        }
+        if (miPassNueva !== miPassConfirmar) {
+          return alert('La confirmación de la nueva contraseña no coincide.');
+        }
+
+        const usuarioActualizado = {
+          ...usuarioAutenticado,
+          password: miPassNueva
+        };
+
+        if (firebaseHabilitado && db) {
+          await db.collection('usuarios').doc(usuarioActualizado.id).update({ password: miPassNueva });
+        }
+
+        setUsuarioAutenticado(usuarioActualizado);
+        setUsuarios(usuarios.map(u => u.id === usuarioActualizado.id ? usuarioActualizado : u));
+        setMiPassActual('');
+        setMiPassNueva('');
+        setMiPassConfirmar('');
+        setMostrarModalCambiarMiPassword(false);
+        alert('✅ ¡Contraseña actualizada exitosamente en la nube!');
+      };
+
+      // --- PERSISTENCIA FIRESTORE ---
       const persistirUsuarioFirestore = async (uObj) => {
         if (firebaseHabilitado && db) {
           await db.collection('usuarios').doc(uObj.id).set(uObj);
@@ -317,7 +348,7 @@
           };
           await persistirUsuarioFirestore(uActualizado);
           setUsuarios(usuarios.map(u => u.id === usuarioEnEdicion.id ? uActualizado : u));
-          alert(`[${ahora}] Usuario ${userUsername} actualizado en la nube.`);
+          alert(`[${ahora}] Usuario ${userUsername} actualizado.`);
         } else {
           if (usuarios.some(u => u.username.toLowerCase() === userUsername.trim().toLowerCase())) {
             return alert('El nombre de usuario ya existe.');
@@ -335,7 +366,7 @@
           };
           await persistirUsuarioFirestore(nuevo);
           setUsuarios([...usuarios, nuevo]);
-          alert(`[${ahora}] Cuenta ${nuevo.nombre} creada y sincronizada.`);
+          alert(`[${ahora}] Cuenta ${nuevo.nombre} creada.`);
         }
 
         abrirCreacionUsuarioAdmin();
@@ -343,7 +374,7 @@
 
       const eliminarUsuarioAdmin = async (id, nombre) => {
         if (id === usuarioAutenticado.id) return alert('No puede eliminar su propia cuenta activa.');
-        if (confirm(`¿Eliminar al colaborador ${nombre} de la base de datos?`)) {
+        if (confirm(`¿Eliminar al colaborador ${nombre}?`)) {
           await eliminarUsuarioFirestore(id);
           setUsuarios(usuarios.filter(u => u.id !== id));
         }
@@ -381,7 +412,7 @@
         setTecEmail('');
         setTecCelular('');
         setMostrarModalCrearTecnicoSupervisor(false);
-        alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado y sincronizado en Firestore.`);
+        alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado.`);
       };
 
       // --- OPERACIONES OIT ---
@@ -405,7 +436,6 @@
         setItemCant(1);
       };
 
-      // 1. SOLICITUD POR SUPERVISOR
       const crearSolicitudOit = async (e) => {
         e.preventDefault();
         if (!codigoOit.trim()) return alert('Ingrese el código OIT / TK');
@@ -459,10 +489,9 @@
           mensaje: cuerpoCorreo
         });
 
-        alert(`[${ahora}] Solicitud ${nuevaOrden.codigoOit} guardada en Firestore y enviada a Logística.`);
+        alert(`[${ahora}] Solicitud ${nuevaOrden.codigoOit} guardada y enviada.`);
       };
 
-      // 2. EDICIÓN COMPLETA (ADMIN/LOGÍSTICA)
       const abrirModalEdicionOit = (ord) => {
         setOitEnEdicion(JSON.parse(JSON.stringify(ord)));
       };
@@ -522,10 +551,9 @@
         await persistirOrdenFirestore(oitActualizada);
         setOrdenes(ordenes.map(o => o.id === oitActualizada.id ? oitActualizada : o));
         setOitEnEdicion(null);
-        alert(`[${ahora}] Requerimiento ${oitActualizada.codigoOit} actualizado en la nube.`);
+        alert(`[${ahora}] Requerimiento ${oitActualizada.codigoOit} actualizado.`);
       };
 
-      // 3. CAMBIO DE ESTADO POR SUPERVISOR
       const cambiarEstadoSupervisor = async (id, nuevoEstado) => {
         const ahora = formatearFechaHora();
         const supNombre = usuarioAutenticado.nombre;
@@ -545,7 +573,6 @@
         alert(`[${ahora}] Solicitud ${ord.codigoOit} actualizada a ${nuevoEstado}.`);
       };
 
-      // 4. DESPACHO POR LOGÍSTICA
       const despacharOrden = async (id) => {
         const ahora = formatearFechaHora();
         const despachadorNombre = usuarioAutenticado.nombre;
@@ -575,10 +602,9 @@
           mensaje: `Estimado(a) ${ordenActual.supervisorNombre} y Técnico ${ordenActual.tecnicoNombre},\n\nSe informa que se REALIZÓ EL DESPACHO DE LOS EQUIPOS Y/O MATERIALES solicitados bajo la OIT/TK ${ordenActual.codigoOit}.\n\n- Despachado por: ${despachadorNombre}\n- Fecha y Hora de Despacho: ${ahora}\n- Cliente: ${ordenActual.cliente}\n\nÍTEMS ENTREGADOS:\n${ordenActual.items.map(i => `• [${i.categoria}] ${i.descripcion} | Cant: ${i.cantidadSolicitada} ${i.unidad} | Destino: ${i.destino}${i.serieActivo ? ` (S/N: ${i.serieActivo})` : ''}`).join('\n')}\n\nPor favor proceder con la recepción física y la posterior liquidación tras la culminación de los trabajos.`
         });
 
-        alert(`[${ahora}] ¡ORDEN ${ordenActualizada.codigoOit} DESPACHADA Y SINCRONIZADA!`);
+        alert(`[${ahora}] ¡ORDEN ${ordenActualizada.codigoOit} DESPACHADA!`);
       };
 
-      // 5. LIQUIDACIÓN POR TÉCNICO
       const abrirModalLiquidacion = (orden) => {
         const clon = JSON.parse(JSON.stringify(orden));
         clon.items.forEach(it => {
@@ -621,10 +647,9 @@
           mensaje: `Estimada Área de Logística y Supervisor ${ordenActualizada.supervisorNombre},\n\nSe informa que se REALIZÓ EL TRABAJO en campo y se responde con los materiales y equipos usados para su respectivo control:\n\n- OIT / TK: ${ordenActualizada.codigoOit}\n- Cliente: ${ordenActualizada.cliente}\n- Técnico Ejecutante: ${tecnicoNombre}\n- Fecha de Cierre de Trabajo: ${ahora}\n\nDETALLE DE LIQUIDACIÓN:\n${ordenActualizada.items.map(i => `• [${i.categoria}] ${i.descripcion} -> Solicitado: ${i.cantidadSolicitada} ${i.unidad} | INSTALADO EN CLIENTE: ${i.cantidadInstalada || 0} | SOBRANTE/DEVUELTO: ${i.cantidadDevuelta || 0} | Estado Retorno: ${i.estadoRetorno || 'N/A'}`).join('\n')}\n\nSe solicita la conciliación final en almacén.`
         });
 
-        alert(`[${ahora}] Liquidación de la OIT ${ordenActualizada.codigoOit} guardada en Firestore.`);
+        alert(`[${ahora}] Liquidación de la OIT ${ordenActualizada.codigoOit} guardada.`);
       };
 
-      // 6. CONCILIACIÓN Y CIERRE POR LOGÍSTICA
       const conciliarYCerrar = async (id) => {
         const ahora = formatearFechaHora();
         const responsableNombre = usuarioAutenticado.nombre;
@@ -863,6 +888,11 @@
       // ==========================================
       const rol = usuarioAutenticado.rol;
 
+      // Generador de enlace directo a Gmail
+      const generarEnlaceGmail = (para, cc, asunto, mensaje) => {
+        return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(para)}&cc=${encodeURIComponent(cc)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
+      };
+
       return (
         <div className="min-h-screen pb-12">
           {/* HEADER */}
@@ -873,10 +903,10 @@
                 <h1 className="text-lg font-bold text-white tracking-wide">FELOSOTEC E.I.R.L.</h1>
                 <span className="text-xs text-slate-400 font-mono hidden sm:inline">RUC: 20538875628</span>
               </div>
-              <p className="text-xs text-slate-400">Gestión Integral de Despacho y Notificaciones Automáticas por OIT</p>
+              <p className="text-xs text-slate-400">Gestión Integral de Despacho y Notificaciones por OIT</p>
             </div>
 
-            <div className="flex items-center gap-4 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 text-xs">
+            <div className="flex items-center gap-3 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 text-xs">
               <div>
                 <p className="font-bold text-white">{usuarioAutenticado.nombre}</p>
                 <div className="flex items-center gap-2">
@@ -888,6 +918,16 @@
                   </span>
                 </div>
               </div>
+
+              {/* BOTÓN GESTOR DE MI CONTRASEÑA */}
+              <button 
+                onClick={() => setMostrarModalCambiarMiPassword(true)}
+                title="Modificar mi contraseña de acceso"
+                className="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 px-2.5 py-1.5 rounded-lg font-semibold transition text-xs border border-amber-500/30 flex items-center gap-1"
+              >
+                🔑 Clave
+              </button>
+
               <button 
                 onClick={handleLogout}
                 className="bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-300 px-3 py-1.5 rounded-lg font-semibold transition text-xs"
@@ -1100,7 +1140,7 @@
                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                       <div>
                         <h3 className="text-base font-bold text-white">📝 Nuevo Requerimiento OIT / TK</h3>
-                        <p className="text-[11px] text-slate-400">Notificación automática por correo a <b>logistica@felosotec.com</b> con copia al técnico</p>
+                        <p className="text-[11px] text-slate-400">Notificación automática a <b>logistica@felosotec.com</b> con copia al técnico</p>
                       </div>
                       <span className="text-xs bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded border border-amber-500/20 font-bold">
                         {usuarioAutenticado.tipoTrabajo}
@@ -1682,7 +1722,7 @@
               </div>
             )}
 
-            {/* MODAL: VISOR DE CORREO AUTOMÁTICO */}
+            {/* MODAL: VISOR DE CORREO AUTOMÁTICO (DIRECTO A GMAIL WEB O LOCAL) */}
             {notificacionEmailSimulada && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-amber-500/50 rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
@@ -1690,7 +1730,7 @@
                     <div className="flex items-center gap-2">
                       <span className="text-xl">📧</span>
                       <div>
-                        <h3 className="text-sm font-bold text-white">Disparo de Correo Automático Realizado</h3>
+                        <h3 className="text-sm font-bold text-white">Notificación por Correo</h3>
                         <p className="text-[11px] text-amber-400 font-mono">{notificacionEmailSimulada.timestamp}</p>
                       </div>
                     </div>
@@ -1708,20 +1748,104 @@
                     </div>
                   </div>
 
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex flex-wrap gap-2 justify-end pt-1">
+                    {/* BOTÓN 1: GMAIL WEB */}
+                    <a 
+                      href={generarEnlaceGmail(notificacionEmailSimulada.para, notificacionEmailSimulada.cc, notificacionEmailSimulada.asunto, notificacionEmailSimulada.mensaje)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded text-xs transition flex items-center gap-1.5 shadow-lg shadow-rose-600/20"
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                        <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.272H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L12 9.545l8.073-6.052C21.69 2.28 24 3.434 24 5.457z"/>
+                      </svg>
+                      Abrir en Gmail
+                    </a>
+
+                    {/* BOTÓN 2: GESTOR LOCAL (MAILTO) */}
                     <a 
                       href={`mailto:${notificacionEmailSimulada.para}?cc=${encodeURIComponent(notificacionEmailSimulada.cc)}&subject=${encodeURIComponent(notificacionEmailSimulada.asunto)}&body=${encodeURIComponent(notificacionEmailSimulada.mensaje)}`}
-                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded text-xs transition flex items-center gap-1.5"
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold px-3 py-2 rounded text-xs transition"
                     >
-                      ↗️ Abrir en Gestor de Correo Local
+                      Gestor Local
                     </a>
+
                     <button 
                       onClick={() => setNotificacionEmailSimulada(null)}
-                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded text-xs font-semibold"
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-400 px-3 py-2 rounded text-xs"
                     >
-                      Entendido
+                      Cerrar
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: CAMBIAR MI PROPIA CONTRASEÑA */}
+            {mostrarModalCambiarMiPassword && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-md w-full p-6 space-y-4">
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">🔑 Cambiar Mi Contraseña</h3>
+                      <p className="text-xs text-slate-400">Usuario: <b className="text-amber-400">{usuarioAutenticado.username}</b> ({usuarioAutenticado.nombre})</p>
+                    </div>
+                    <button onClick={() => setMostrarModalCambiarMiPassword(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <form onSubmit={guardarMiNuevaPassword} className="space-y-3 text-xs">
+                    <div>
+                      <label className="block text-slate-300 mb-1">Contraseña Actual *</label>
+                      <input 
+                        type="password" 
+                        required
+                        placeholder="••••••••"
+                        value={miPassActual}
+                        onChange={e => setMiPassActual(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 mb-1">Nueva Contraseña *</label>
+                      <input 
+                        type="password" 
+                        required
+                        placeholder="Mínimo 4 caracteres"
+                        value={miPassNueva}
+                        onChange={e => setMiPassNueva(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 mb-1">Confirmar Nueva Contraseña *</label>
+                      <input 
+                        type="password" 
+                        required
+                        placeholder="Repita la nueva contraseña"
+                        value={miPassConfirmar}
+                        onChange={e => setMiPassConfirmar(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <button 
+                        type="button"
+                        onClick={() => setMostrarModalCambiarMiPassword(false)}
+                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded font-semibold"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        type="submit"
+                        className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded transition shadow-md shadow-amber-500/10"
+                      >
+                        Guardar Contraseña
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}
@@ -1795,14 +1919,14 @@
               </div>
             )}
 
-            {/* MODAL: GESTIÓN DE USUARIOS */}
+            {/* MODAL: GESTIÓN DE USUARIOS (ADMIN GENERAL) */}
             {mostrarModalUserAdmin && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                   <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                     <div>
                       <h3 className="text-base font-bold text-white">👑 Configuración de Cuentas y Accesos</h3>
-                      <p className="text-xs text-slate-400">Creación y control centralizado de credenciales en Firestore</p>
+                      <p className="text-xs text-slate-400">Gestor centralizado de contraseñas y colaboradores en Firestore</p>
                     </div>
                     <button onClick={() => setMostrarModalUserAdmin(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
                   </div>
