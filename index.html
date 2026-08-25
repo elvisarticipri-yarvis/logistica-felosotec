@@ -18,6 +18,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
+  <!-- Firebase App y Firestore SDKs (Compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -29,6 +33,31 @@
 
   <script type="text/babel">
     const { useState, useEffect } = React;
+
+    // =========================================================================
+    // CONFIGURACIÓN DE FIREBASE (REEMPLAZA CON TUS CREDENCIALES DE CONSOLA)
+    // =========================================================================
+    const FIREBASE_CONFIG = {
+         apiKey: "AIzaSyCIM9dt9BMEdYvfVeGhhsv3MSlu9FmIZzI",
+         authDomain: "felosotec-logistica.firebaseapp.com",
+         projectId: "felosotec-logistica",
+         storageBucket: "felosotec-logistica.firebasestorage.app",
+         messagingSenderId: "319182025257",
+         appId: "1:319182025257:web:ee4cb0593fb37599566238"
+    };
+
+    // Inicializar Firebase
+    let db = null;
+    let firebaseHabilitado = false;
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+      db = firebase.firestore();
+      firebaseHabilitado = true;
+    } catch (err) {
+      console.warn("Firestore no inicializado o usando fallback local:", err);
+    }
 
     const TIPOS_TRABAJO = [
       "Mantenimiento Preventivo",
@@ -75,13 +104,15 @@
     };
 
     function App() {
+      // Estado de Usuarios sincronizado con Firestore
       const [usuarios, setUsuarios] = useState(() => {
-        const u = localStorage.getItem('FELOSOTEC_USUARIOS_AUTH_V2');
+        const u = localStorage.getItem('FELOSOTEC_USUARIOS_AUTH_V3');
         return u ? JSON.parse(u) : USUARIOS_INICIALES;
       });
 
+      // Estado de Sesión
       const [usuarioAutenticado, setUsuarioAutenticado] = useState(() => {
-        const s = localStorage.getItem('FELOSOTEC_AUTH_SESSION_V2');
+        const s = localStorage.getItem('FELOSOTEC_AUTH_SESSION_V3');
         return s ? JSON.parse(s) : null;
       });
 
@@ -89,57 +120,51 @@
       const [loginPass, setLoginPass] = useState('');
       const [errorLogin, setErrorLogin] = useState('');
 
+      // Estado de Órdenes sincronizado en tiempo real
       const [ordenes, setOrdenes] = useState(() => {
-        const o = localStorage.getItem('FELOSOTEC_ORDENES_AUTH_V2');
-        if (o) return JSON.parse(o);
-        return [
-          {
-            id: '1',
-            codigoOit: 'S486299',
-            cliente: 'SUPERMERCADOS PERUANOS S.P.S.A.',
-            tipoTrabajo: 'Instalaciones',
-            supervisorId: '2',
-            supervisorNombre: 'ARTICA CIPRIANO ELVIS ALVITES',
-            supervisorEmail: 'elvis.artica@felosotec.com',
-            tecnicoId: '4',
-            tecnicoNombre: 'REY SANCHEZ SUAREZ SOFIA',
-            tecnicoEmail: 'sofia.rey@felosotec.com',
-            responsableDespacho: 'JERI OBREGON CRISTHINA XIOMARA',
-            despachadoPorUsuario: 'JERI OBREGON CRISTHINA XIOMARA',
-            fechaSolicitud: '23/08/2026 10:30:00',
-            fechaEntrega: '23/08/2026 11:15:00',
-            fechaCierre: null,
-            estado: 'DESPACHADO',
-            historialMovimientos: [
-              { fechaHora: '23/08/2026 10:30:00', usuario: 'ARTICA CIPRIANO ELVIS ALVITES', accion: 'Creación de Requerimiento OIT y envío de correo a logistica@felosotec.com con copia al técnico' },
-              { fechaHora: '23/08/2026 11:15:00', usuario: 'JERI OBREGON CRISTHINA XIOMARA', accion: 'Despacho Físico y respuesta de correo confirmando entrega de equipos/materiales' }
-            ],
-            items: [
-              { id: '101', categoria: 'MATERIAL', descripcion: 'Cintillos Blancos 200mm', unidad: 'UND', cantidadSolicitada: 50, destino: 'CLIENTE', cantidadInstalada: 45, cantidadDevuelta: 5, estadoRetorno: 'OPERATIVO' },
-              { id: '102', categoria: 'EQUIPO', descripcion: 'Router H3C MSR1008', serieActivo: 'H3C-99281-PE', unidad: 'UND', cantidadSolicitada: 1, destino: 'CLIENTE', cantidadInstalada: 1, cantidadDevuelta: 0, estadoRetorno: 'OPERATIVO' },
-              { id: '103', categoria: 'HERRAMIENTA', descripcion: 'Ponchadora RJ45 AMP', serieActivo: 'TOOL-044', unidad: 'UND', cantidadSolicitada: 1, destino: 'NODO', cantidadInstalada: 0, cantidadDevuelta: 1, estadoRetorno: 'OPERATIVO' }
-            ]
-          }
-        ];
+        const o = localStorage.getItem('FELOSOTEC_ORDENES_AUTH_V3');
+        return o ? JSON.parse(o) : [];
       });
 
+      // --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE ---
       useEffect(() => {
-        localStorage.setItem('FELOSOTEC_USUARIOS_AUTH_V2', JSON.stringify(usuarios));
-      }, [usuarios]);
+        if (!firebaseHabilitado || !db) return;
 
-      useEffect(() => {
-        localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V2', JSON.stringify(ordenes));
-      }, [ordenes]);
+        // 1. Escuchar Usuarios
+        const unsubUsuarios = db.collection('usuarios').onSnapshot((snap) => {
+          if (snap.empty) {
+            USUARIOS_INICIALES.forEach(u => {
+              db.collection('usuarios').doc(u.id).set(u);
+            });
+          } else {
+            const listU = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setUsuarios(listU);
+            localStorage.setItem('FELOSOTEC_USUARIOS_AUTH_V3', JSON.stringify(listU));
+          }
+        }, (err) => console.error("Error usuarios Firestore:", err));
+
+        // 2. Escuchar Órdenes OIT
+        const unsubOrdenes = db.collection('ordenes_oit').onSnapshot((snap) => {
+          const listO = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setOrdenes(listO);
+          localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V3', JSON.stringify(listO));
+        }, (err) => console.error("Error órdenes Firestore:", err));
+
+        return () => {
+          unsubUsuarios();
+          unsubOrdenes();
+        };
+      }, []);
 
       useEffect(() => {
         if (usuarioAutenticado) {
-          localStorage.setItem('FELOSOTEC_AUTH_SESSION_V2', JSON.stringify(usuarioAutenticado));
+          localStorage.setItem('FELOSOTEC_AUTH_SESSION_V3', JSON.stringify(usuarioAutenticado));
         } else {
-          localStorage.removeItem('FELOSOTEC_AUTH_SESSION_V2');
+          localStorage.removeItem('FELOSOTEC_AUTH_SESSION_V3');
         }
       }, [usuarioAutenticado]);
 
-      // Modales y Estados de UI
+      // Modales y formularios
       const [mostrarModalUserAdmin, setMostrarModalUserAdmin] = useState(false);
       const [mostrarModalCrearTecnicoSupervisor, setMostrarModalCrearTecnicoSupervisor] = useState(false);
       const [usuarioEnEdicion, setUsuarioEnEdicion] = useState(null);
@@ -196,15 +221,18 @@
         }
       }, [tecnicos]);
 
-      // --- HELPERS DE CORREO AUTOMÁTICO ---
       const dispararNotificacionCorreo = ({ remitente, para, cc, asunto, mensaje }) => {
         setNotificacionEmailSimulada({ remitente, para, cc, asunto, mensaje, timestamp: formatearFechaHora() });
       };
 
-      // --- AUTENTICACIÓN ---
+      // --- AUTENTICACIÓN (ACEPTA TANTO USERNAME COMO EMAIL) ---
       const handleLogin = (e) => {
         e.preventDefault();
-        const found = usuarios.find(u => u.username.toLowerCase() === loginUser.trim().toLowerCase() && u.password === loginPass);
+        const entrada = loginUser.trim().toLowerCase();
+        const found = usuarios.find(u => 
+          (u.username.toLowerCase() === entrada || u.email.toLowerCase() === entrada) && 
+          u.password === loginPass
+        );
         if (found) {
           setUsuarioAutenticado(found);
           setErrorLogin('');
@@ -217,6 +245,31 @@
 
       const handleLogout = () => {
         setUsuarioAutenticado(null);
+      };
+
+      // --- MÉTODOS DE BASE DE DATOS (FIRESTORE CON FALLBACK LOCAL) ---
+      const persistirUsuarioFirestore = async (uObj) => {
+        if (firebaseHabilitado && db) {
+          await db.collection('usuarios').doc(uObj.id).set(uObj);
+        }
+      };
+
+      const eliminarUsuarioFirestore = async (id) => {
+        if (firebaseHabilitado && db) {
+          await db.collection('usuarios').doc(id).delete();
+        }
+      };
+
+      const persistirOrdenFirestore = async (oObj) => {
+        if (firebaseHabilitado && db) {
+          await db.collection('ordenes_oit').doc(oObj.id).set(oObj);
+        }
+      };
+
+      const eliminarOrdenFirestore = async (id) => {
+        if (firebaseHabilitado && db) {
+          await db.collection('ordenes_oit').doc(id).delete();
+        }
       };
 
       // --- GESTIÓN USUARIOS ADMIN ---
@@ -242,7 +295,7 @@
         setUserTipoTrabajo(u.tipoTrabajo || 'Instalaciones');
       };
 
-      const guardarUsuarioAdmin = (e) => {
+      const guardarUsuarioAdmin = async (e) => {
         e.preventDefault();
         if (!userUsername.trim() || !userPassword.trim() || !userNombre.trim()) {
           return alert('Complete todos los campos obligatorios.');
@@ -252,8 +305,8 @@
         const tipoFinal = userRol === 'SUPERVISOR_SOLICITANTE' ? userTipoTrabajo : 'N/A';
 
         if (usuarioEnEdicion) {
-          setUsuarios(usuarios.map(u => u.id === usuarioEnEdicion.id ? {
-            ...u,
+          const uActualizado = {
+            ...usuarioEnEdicion,
             username: userUsername.trim().toLowerCase(),
             password: userPassword,
             nombre: userNombre.toUpperCase().trim(),
@@ -261,8 +314,10 @@
             celular: userCelular.trim(),
             rol: userRol,
             tipoTrabajo: tipoFinal
-          } : u));
-          alert(`[${ahora}] Usuario ${userUsername} actualizado.`);
+          };
+          await persistirUsuarioFirestore(uActualizado);
+          setUsuarios(usuarios.map(u => u.id === usuarioEnEdicion.id ? uActualizado : u));
+          alert(`[${ahora}] Usuario ${userUsername} actualizado en la nube.`);
         } else {
           if (usuarios.some(u => u.username.toLowerCase() === userUsername.trim().toLowerCase())) {
             return alert('El nombre de usuario ya existe.');
@@ -278,29 +333,32 @@
             rol: userRol,
             tipoTrabajo: tipoFinal
           };
+          await persistirUsuarioFirestore(nuevo);
           setUsuarios([...usuarios, nuevo]);
-          alert(`[${ahora}] Cuenta ${nuevo.nombre} creada con éxito.`);
+          alert(`[${ahora}] Cuenta ${nuevo.nombre} creada y sincronizada.`);
         }
 
         abrirCreacionUsuarioAdmin();
       };
 
-      const eliminarUsuarioAdmin = (id, nombre) => {
+      const eliminarUsuarioAdmin = async (id, nombre) => {
         if (id === usuarioAutenticado.id) return alert('No puede eliminar su propia cuenta activa.');
-        if (confirm(`¿Eliminar al colaborador ${nombre}?`)) {
+        if (confirm(`¿Eliminar al colaborador ${nombre} de la base de datos?`)) {
+          await eliminarUsuarioFirestore(id);
           setUsuarios(usuarios.filter(u => u.id !== id));
         }
       };
 
-      const eliminarRequerimientoAdmin = (id, codigoOit) => {
+      const eliminarRequerimientoAdmin = async (id, codigoOit) => {
         if (confirm(`⚠️ ¿Desea eliminar definitivamente el requerimiento OIT/TK "${codigoOit}"?`)) {
+          await eliminarOrdenFirestore(id);
           setOrdenes(ordenes.filter(ord => ord.id !== id));
           alert(`[${formatearFechaHora()}] Requerimiento ${codigoOit} eliminado.`);
         }
       };
 
       // --- ALTA TÉCNICO SUPERVISOR ---
-      const registrarTecnicoPorSupervisor = (e) => {
+      const registrarTecnicoPorSupervisor = async (e) => {
         e.preventDefault();
         if (!tecNombre.trim() || !tecEmail.trim() || !tecCelular.trim()) return alert('Complete los datos');
         const ahora = formatearFechaHora();
@@ -317,12 +375,13 @@
           tipoTrabajo: 'N/A'
         };
 
+        await persistirUsuarioFirestore(nuevoTecnico);
         setUsuarios([...usuarios, nuevoTecnico]);
         setTecNombre('');
         setTecEmail('');
         setTecCelular('');
         setMostrarModalCrearTecnicoSupervisor(false);
-        alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado con éxito.`);
+        alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado y sincronizado en Firestore.`);
       };
 
       // --- OPERACIONES OIT ---
@@ -346,8 +405,8 @@
         setItemCant(1);
       };
 
-      // 1. SOLICITUD POR SUPERVISOR (ENVÍO AUTOMÁTICO DE CORREO CON ASUNTO REQUERIDO)
-      const crearSolicitudOit = (e) => {
+      // 1. SOLICITUD POR SUPERVISOR
+      const crearSolicitudOit = async (e) => {
         e.preventDefault();
         if (!codigoOit.trim()) return alert('Ingrese el código OIT / TK');
         if (itemsBorrador.length === 0) return alert('Añada al menos un ítem');
@@ -384,11 +443,11 @@
           items: itemsBorrador
         };
 
+        await persistirOrdenFirestore(nuevaOrden);
         setOrdenes([nuevaOrden, ...ordenes]);
         setItemsBorrador([]);
         setCodigoOit('');
 
-        // Notificación automática por correo
         const asuntoCorreo = `Solicitud de Equipos y/o Materiales (${nuevaOrden.codigoOit} y ${nuevaOrden.cliente})`;
         const cuerpoCorreo = `Estimada Área de Logística,\n\nSe ha generado un nuevo requerimiento de despacho:\n- OIT / TK: ${nuevaOrden.codigoOit}\n- Cliente: ${nuevaOrden.cliente}\n- Tipo de Trabajo: ${nuevaOrden.tipoTrabajo}\n- Supervisor Solicitante: ${nuevaOrden.supervisorNombre} (${nuevaOrden.supervisorEmail})\n- Técnico Asignado: ${nuevaOrden.tecnicoNombre} (${nuevaOrden.tecnicoEmail})\n\nÍTEMS SOLICITADOS:\n${nuevaOrden.items.map(i => `• [${i.categoria}] ${i.descripcion} | Cant: ${i.cantidadSolicitada} ${i.unidad} | Destino: ${i.destino}`).join('\n')}\n\nFavor de proceder con la validación y despacho correspondiente.`;
 
@@ -400,10 +459,10 @@
           mensaje: cuerpoCorreo
         });
 
-        alert(`[${ahora}] Solicitud ${nuevaOrden.codigoOit} enviada a Logística.\nCorreo automático enviado desde: ${supervisorActual.email}\nPara: logistica@felosotec.com\nCC: ${tecnicoObj.email}`);
+        alert(`[${ahora}] Solicitud ${nuevaOrden.codigoOit} guardada en Firestore y enviada a Logística.`);
       };
 
-      // 2. EDICIÓN COMPLETA (ADMIN/LOGÍSTICA PUEDE MODIFICAR CLIENTE, PERSONAL E ÍTEMS ACTUALES)
+      // 2. EDICIÓN COMPLETA (ADMIN/LOGÍSTICA)
       const abrirModalEdicionOit = (ord) => {
         setOitEnEdicion(JSON.parse(JSON.stringify(ord)));
       };
@@ -445,7 +504,7 @@
         });
       };
 
-      const guardarCambiosOit = () => {
+      const guardarCambiosOit = async () => {
         const ahora = formatearFechaHora();
         const editorNombre = usuarioAutenticado.nombre;
         const tecnicoObj = usuarios.find(u => u.id === oitEnEdicion.tecnicoId);
@@ -460,13 +519,14 @@
           ]
         };
 
+        await persistirOrdenFirestore(oitActualizada);
         setOrdenes(ordenes.map(o => o.id === oitActualizada.id ? oitActualizada : o));
         setOitEnEdicion(null);
-        alert(`[${ahora}] Requerimiento ${oitActualizada.codigoOit} actualizado con sus ítems.`);
+        alert(`[${ahora}] Requerimiento ${oitActualizada.codigoOit} actualizado en la nube.`);
       };
 
-      // 3. CAMBIO DE ESTADO POR SUPERVISOR (PENDIENTE / CANCELADO Y RETORNO A LOGÍSTICA)
-      const cambiarEstadoSupervisor = (id, nuevoEstado) => {
+      // 3. CAMBIO DE ESTADO POR SUPERVISOR
+      const cambiarEstadoSupervisor = async (id, nuevoEstado) => {
         const ahora = formatearFechaHora();
         const supNombre = usuarioAutenticado.nombre;
         const ord = ordenes.find(o => o.id === id);
@@ -480,12 +540,13 @@
           ]
         };
 
+        await persistirOrdenFirestore(ordenActualizada);
         setOrdenes(ordenes.map(o => o.id === id ? ordenActualizada : o));
-        alert(`[${ahora}] Solicitud ${ord.codigoOit} marcada como ${nuevoEstado} y retornada a Logística.`);
+        alert(`[${ahora}] Solicitud ${ord.codigoOit} actualizada a ${nuevoEstado}.`);
       };
 
-      // 4. DESPACHO POR ADMIN LOGÍSTICA (REGISTRO DE USUARIO DESPACHADOR + RESPUESTA AUTOMÁTICA DE CORREO)
-      const despacharOrden = (id) => {
+      // 4. DESPACHO POR LOGÍSTICA
+      const despacharOrden = async (id) => {
         const ahora = formatearFechaHora();
         const despachadorNombre = usuarioAutenticado.nombre;
         const despachadorEmail = usuarioAutenticado.email || 'logistica@felosotec.com';
@@ -503,9 +564,9 @@
           ]
         };
 
+        await persistirOrdenFirestore(ordenActualizada);
         setOrdenes(ordenes.map(o => o.id === id ? ordenActualizada : o));
 
-        // Respuesta automática al correo
         dispararNotificacionCorreo({
           remitente: despachadorEmail,
           para: ordenActual.supervisorEmail,
@@ -514,10 +575,10 @@
           mensaje: `Estimado(a) ${ordenActual.supervisorNombre} y Técnico ${ordenActual.tecnicoNombre},\n\nSe informa que se REALIZÓ EL DESPACHO DE LOS EQUIPOS Y/O MATERIALES solicitados bajo la OIT/TK ${ordenActual.codigoOit}.\n\n- Despachado por: ${despachadorNombre}\n- Fecha y Hora de Despacho: ${ahora}\n- Cliente: ${ordenActual.cliente}\n\nÍTEMS ENTREGADOS:\n${ordenActual.items.map(i => `• [${i.categoria}] ${i.descripcion} | Cant: ${i.cantidadSolicitada} ${i.unidad} | Destino: ${i.destino}${i.serieActivo ? ` (S/N: ${i.serieActivo})` : ''}`).join('\n')}\n\nPor favor proceder con la recepción física y la posterior liquidación tras la culminación de los trabajos.`
         });
 
-        alert(`[${ahora}] ¡ORDEN ${ordenActualizada.codigoOit} DESPACHADA!\nDespachado por: ${despachadorNombre}\nRespuesta automática remitida por correo con copia a los involucrados.`);
+        alert(`[${ahora}] ¡ORDEN ${ordenActualizada.codigoOit} DESPACHADA Y SINCRONIZADA!`);
       };
 
-      // 5. LIQUIDACIÓN POR TÉCNICO (RESPUESTA AUTOMÁTICA DE CORREO INDICANDO MATERIALES Y EQUIPOS USADOS)
+      // 5. LIQUIDACIÓN POR TÉCNICO
       const abrirModalLiquidacion = (orden) => {
         const clon = JSON.parse(JSON.stringify(orden));
         clon.items.forEach(it => {
@@ -534,7 +595,7 @@
         setOitParaLiquidar(clon);
       };
 
-      const guardarLiquidacionTecnico = () => {
+      const guardarLiquidacionTecnico = async () => {
         const ahora = formatearFechaHora();
         const tecnicoNombre = usuarioAutenticado.nombre;
         const tecnicoEmail = usuarioAutenticado.email;
@@ -548,10 +609,10 @@
           ]
         };
 
+        await persistirOrdenFirestore(ordenActualizada);
         setOrdenes(ordenes.map(o => o.id === oitParaLiquidar.id ? ordenActualizada : o));
         setOitParaLiquidar(null);
 
-        // Respuesta automática al correo
         dispararNotificacionCorreo({
           remitente: tecnicoEmail,
           para: 'logistica@felosotec.com',
@@ -560,11 +621,11 @@
           mensaje: `Estimada Área de Logística y Supervisor ${ordenActualizada.supervisorNombre},\n\nSe informa que se REALIZÓ EL TRABAJO en campo y se responde con los materiales y equipos usados para su respectivo control:\n\n- OIT / TK: ${ordenActualizada.codigoOit}\n- Cliente: ${ordenActualizada.cliente}\n- Técnico Ejecutante: ${tecnicoNombre}\n- Fecha de Cierre de Trabajo: ${ahora}\n\nDETALLE DE LIQUIDACIÓN:\n${ordenActualizada.items.map(i => `• [${i.categoria}] ${i.descripcion} -> Solicitado: ${i.cantidadSolicitada} ${i.unidad} | INSTALADO EN CLIENTE: ${i.cantidadInstalada || 0} | SOBRANTE/DEVUELTO: ${i.cantidadDevuelta || 0} | Estado Retorno: ${i.estadoRetorno || 'N/A'}`).join('\n')}\n\nSe solicita la conciliación final en almacén.`
         });
 
-        alert(`[${ahora}] Liquidación de la OIT ${ordenActualizada.codigoOit} enviada a Logística.\nCorreo de respuesta generado y notificado.`);
+        alert(`[${ahora}] Liquidación de la OIT ${ordenActualizada.codigoOit} guardada en Firestore.`);
       };
 
-      // 6. CONCILIACIÓN Y CIERRE POR ADMIN LOGÍSTICA (RESPUESTA DE CORREO DE FINALIZACIÓN Y COTEJO)
-      const conciliarYCerrar = (id) => {
+      // 6. CONCILIACIÓN Y CIERRE POR LOGÍSTICA
+      const conciliarYCerrar = async (id) => {
         const ahora = formatearFechaHora();
         const responsableNombre = usuarioAutenticado.nombre;
         const responsableEmail = usuarioAutenticado.email || 'logistica@felosotec.com';
@@ -580,9 +641,9 @@
           ]
         };
 
+        await persistirOrdenFirestore(ordenActualizada);
         setOrdenes(ordenes.map(o => o.id === id ? ordenActualizada : o));
 
-        // Respuesta automática al correo
         dispararNotificacionCorreo({
           remitente: responsableEmail,
           para: ordenActual.supervisorEmail,
@@ -591,7 +652,7 @@
           mensaje: `Estimados,\n\nSe informa la FINALIZACIÓN DEL TRABAJO correspondiente a la OIT/TK ${ordenActual.codigoOit} (${ordenActual.cliente}).\n\nTodos los materiales y equipos fueron COTEJADOS satisfactoriamente en almacén y se finalizó la devolución y conciliación formal bajo el formato LOG_RE_03 v03.\n\n- Responsable de Conciliación: ${responsableNombre}\n- Fecha de Cierre: ${ahora}\n\nLa orden queda archivada y cerrada en el sistema.`
         });
 
-        alert(`[${ahora}] OIT ${ordenActualizada.codigoOit} Conciliada y Cerrada.\nCorreo de finalización y cotejo enviado a todos los involucrados.`);
+        alert(`[${ahora}] OIT ${ordenActualizada.codigoOit} Conciliada y Cerrada.`);
       };
 
       // Exportar Excel
@@ -738,6 +799,12 @@
                 </span>
                 <h1 className="text-2xl font-bold text-white tracking-wide">FELOSOTEC E.I.R.L.</h1>
                 <p className="text-xs text-slate-400">Portal de Acceso y Control Logístico por OIT</p>
+                {firebaseHabilitado && (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Nube Firestore Conectada
+                  </span>
+                )}
               </div>
 
               {errorLogin && (
@@ -748,11 +815,11 @@
 
               <form onSubmit={handleLogin} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Nombre de Usuario</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Usuario o Correo Institucional</label>
                   <input 
                     type="text" 
                     required
-                    placeholder="Ej. admin, logistica, elvis.artica, sofia.rey"
+                    placeholder="Ej. admin, logistica, elvis.artica@felosotec.com"
                     value={loginUser}
                     onChange={e => setLoginUser(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
@@ -832,13 +899,10 @@
 
           <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
 
-            {/* ========================================================= */}
-            {/* VISTA: ADMIN GENERAL Y ADMIN LOGÍSTICA                    */}
-            {/* ========================================================= */}
+            {/* VISTA: ADMIN GENERAL Y ADMIN LOGÍSTICA */}
             {(rol === 'ADMINISTRADOR' || rol === 'ADMIN_LOGISTICA') && (
               <div className="space-y-6">
                 
-                {/* TARJETAS DE ESTADO REQUERIMIENTO */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-xl shadow-lg">
                     <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🟡 Solicitado</span>
@@ -871,7 +935,6 @@
                   </div>
                 </div>
 
-                {/* Botonera */}
                 <div className="flex flex-wrap gap-3">
                   {rol === 'ADMINISTRADOR' && (
                     <button 
@@ -889,14 +952,13 @@
                   </button>
                 </div>
 
-                {/* Bandeja Principal */}
                 <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
                   <div className="p-4 border-b border-slate-800 flex justify-between items-center">
                     <div>
                       <h2 className="text-sm font-bold text-white">Bandeja Global de Requerimientos OIT / TK</h2>
-                      <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación</p>
+                      <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación sincronizada</p>
                     </div>
-                    <span className="text-xs text-slate-400">Total: {ordenes.length} órdenes</span>
+                    <span className="text-xs text-slate-400">Total: {ordenes.length} órdenes en la nube</span>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -921,7 +983,7 @@
                                 onClick={() => setOitParaAuditoria(ord)}
                                 className="text-[10px] text-sky-400 hover:underline mt-1 block"
                               >
-                                🕒 Auditoría y Correos ({ord.historialMovimientos.length})
+                                🕒 Auditoría y Correos ({ord.historialMovimientos?.length || 0})
                               </button>
                             </td>
                             <td className="p-3">
@@ -934,7 +996,6 @@
                               <p className="text-[11px] text-slate-300">Sup: <b>{ord.supervisorNombre}</b></p>
                               <p className="text-[11px] text-sky-400">Téc: <b>{ord.tecnicoNombre}</b></p>
                               
-                              {/* USUARIO QUIEN DESPACHÓ */}
                               <div className="mt-1 pt-1 border-t border-slate-800/80">
                                 <p className="text-[10px] text-slate-400">
                                   Despachó: {ord.despachadoPorUsuario ? (
@@ -947,7 +1008,7 @@
                             </td>
                             <td className="p-3">
                               <div className="space-y-1">
-                                {ord.items.map((i, idx) => (
+                                {ord.items?.map((i, idx) => (
                                   <div key={idx} className="flex items-center gap-1.5 text-[11px]">
                                     <span className="bg-slate-800 text-amber-300 px-1 py-0.2 rounded font-mono text-[9px]">{i.categoria[0]}</span>
                                     <span>{i.descripcion}</span>
@@ -965,7 +1026,6 @@
                               </span>
                             </td>
                             <td className="p-3 text-right space-x-1.5">
-                              {/* OPCIÓN EDITAR REQUERIMIENTO E ÍTEMS */}
                               <button 
                                 onClick={() => abrirModalEdicionOit(ord)}
                                 className="bg-slate-800 hover:bg-slate-700 text-amber-400 px-2 py-1.5 rounded text-[11px] border border-amber-500/30 transition font-semibold"
@@ -1017,9 +1077,7 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* VISTA: SUPERVISOR SOLICITANTE                             */}
-            {/* ========================================================= */}
+            {/* VISTA: SUPERVISOR SOLICITANTE */}
             {rol === 'SUPERVISOR_SOLICITANTE' && (
               <div className="space-y-6">
                 <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-wrap justify-between items-center gap-3">
@@ -1038,7 +1096,6 @@
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Formulario de Requerimiento */}
                   <form onSubmit={crearSolicitudOit} className="lg:col-span-2 bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4">
                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                       <div>
@@ -1095,7 +1152,6 @@
                       </div>
                     </div>
 
-                    {/* Clasificación LOG_RE_03 */}
                     <div className="border-t border-slate-800 pt-4">
                       <div className="flex gap-2 mb-3">
                         {(['MATERIAL', 'HERRAMIENTA', 'EQUIPO']).map(cat => (
@@ -1187,7 +1243,6 @@
                     </button>
                   </form>
 
-                  {/* Panel OITs del Supervisor con Gestión de Estado PENDIENTE / CANCELADO */}
                   <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4">
                     <div className="flex justify-between items-center">
                       <h3 className="text-sm font-bold text-white">Mis OITs ({usuarioAutenticado.tipoTrabajo})</h3>
@@ -1211,7 +1266,6 @@
                             <p className="text-[10px] text-slate-500">Fecha: {o.fechaSolicitud}</p>
                           </div>
 
-                          {/* BOTONES DE CONTROL DE ESTADO POR SUPERVISOR */}
                           <div className="pt-2 border-t border-slate-800/80 flex flex-wrap gap-1.5">
                             <button
                               onClick={() => abrirModalEdicionOit(o)}
@@ -1253,9 +1307,7 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* VISTA: TÉCNICO EJECUTANTE                                 */}
-            {/* ========================================================= */}
+            {/* VISTA: TÉCNICO EJECUTANTE */}
             {rol === 'TECNICO_EJECUTANTE' && (
               <div className="space-y-6">
                 <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
@@ -1288,7 +1340,7 @@
                         <p className="text-[11px] text-slate-400">Supervisor: <b className="text-white">{o.supervisorNombre}</b></p>
                         <p className="text-[11px] text-slate-400">Despachado por: <b className="text-emerald-400">{o.despachadoPorUsuario || 'Pendiente'}</b></p>
                         <p className="text-[11px] font-semibold text-slate-400 mt-2">Materiales y Equipos:</p>
-                        {o.items.map((it, idx) => (
+                        {o.items?.map((it, idx) => (
                           <p key={idx} className="text-[11px] text-slate-300">
                             • [{it.categoria[0]}] {it.descripcion} (Cant: {it.cantidadSolicitada} {it.unidad})
                           </p>
@@ -1330,9 +1382,7 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* MODAL: EDITAR REQUERIMIENTO E ÍTEMS ACTUALES (ADMIN/SUP)  */}
-            {/* ========================================================= */}
+            {/* MODAL: EDITAR REQUERIMIENTO E ÍTEMS ACTUALES */}
             {oitEnEdicion && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1378,7 +1428,6 @@
                     </div>
                   </div>
 
-                  {/* FORMULARIO PARA AÑADIR NUEVO ÍTEM A ESTA OIT */}
                   <div className="bg-slate-900/80 p-3.5 rounded-lg border border-slate-800 space-y-2">
                     <p className="text-xs font-bold text-amber-400">+ Añadir Nuevo Ítem al Requerimiento</p>
                     <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
@@ -1435,11 +1484,10 @@
                     </button>
                   </div>
 
-                  {/* LISTA Y EDICIÓN EN LÍNEA DE ÍTEMS ACTUALES EN ESTA OIT */}
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-300">Ítems Actuales en esta OIT ({oitEnEdicion.items.length}):</p>
+                    <p className="text-xs font-bold text-slate-300">Ítems Actuales en esta OIT ({oitEnEdicion.items?.length || 0}):</p>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                      {oitEnEdicion.items.map((it) => (
+                      {oitEnEdicion.items?.map((it) => (
                         <div key={it.id} className="bg-slate-900 p-2.5 rounded border border-slate-800 text-xs space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="font-mono text-amber-300 font-bold bg-slate-950 px-1.5 py-0.5 rounded">[{it.categoria}]</span>
@@ -1507,22 +1555,20 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* MODAL: AUDITORÍA Y TRAZABILIDAD COMPLETA                  */}
-            {/* ========================================================= */}
+            {/* MODAL: AUDITORÍA */}
             {oitParaAuditoria && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                   <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                     <div>
                       <h3 className="text-base font-bold text-white">🕒 Historial y Notificaciones: OIT {oitParaAuditoria.codigoOit}</h3>
-                      <p className="text-xs text-slate-400">Registro de movimientos y correos de notificación automática</p>
+                      <p className="text-xs text-slate-400">Registro de movimientos y correos en tiempo real</p>
                     </div>
                     <button onClick={() => setOitParaAuditoria(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
                   </div>
 
                   <div className="space-y-3">
-                    {oitParaAuditoria.historialMovimientos.map((h, i) => (
+                    {oitParaAuditoria.historialMovimientos?.map((h, i) => (
                       <div key={i} className="bg-slate-900 border-l-2 border-amber-500 p-3 rounded-r text-xs space-y-1">
                         <div className="flex justify-between text-slate-400">
                           <span className="font-mono font-bold text-amber-400">{h.fechaHora}</span>
@@ -1545,9 +1591,7 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* MODAL: LIQUIDACIÓN TÉCNICA (CAMPO)                      */}
-            {/* ========================================================= */}
+            {/* MODAL: LIQUIDACIÓN TÉCNICA */}
             {oitParaLiquidar && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1560,7 +1604,7 @@
                   </div>
 
                   <div className="space-y-4">
-                    {oitParaLiquidar.items.map((it, idx) => (
+                    {oitParaLiquidar.items?.map((it, idx) => (
                       <div key={it.id} className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2 text-xs">
                         <div className="flex justify-between">
                           <span className="font-bold text-amber-400">[{it.categoria}] {it.descripcion}</span>
@@ -1638,9 +1682,7 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* MODAL: VISOR DE CORREO AUTOMÁTICO DISPARADO               */}
-            {/* ========================================================= */}
+            {/* MODAL: VISOR DE CORREO AUTOMÁTICO */}
             {notificacionEmailSimulada && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-amber-500/50 rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
@@ -1684,9 +1726,7 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* MODAL: ALTA DE TÉCNICO POR SUPERVISOR                     */}
-            {/* ========================================================= */}
+            {/* MODAL: ALTA DE TÉCNICO POR SUPERVISOR */}
             {mostrarModalCrearTecnicoSupervisor && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-lg w-full p-6 space-y-4">
@@ -1755,16 +1795,14 @@
               </div>
             )}
 
-            {/* ========================================================= */}
-            {/* MODAL: GESTIÓN DE USUARIOS (ADMIN GENERAL)                */}
-            {/* ========================================================= */}
+            {/* MODAL: GESTIÓN DE USUARIOS */}
             {mostrarModalUserAdmin && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                   <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                     <div>
                       <h3 className="text-base font-bold text-white">👑 Configuración de Cuentas y Accesos</h3>
-                      <p className="text-xs text-slate-400">Creación y control centralizado de credenciales</p>
+                      <p className="text-xs text-slate-400">Creación y control centralizado de credenciales en Firestore</p>
                     </div>
                     <button onClick={() => setMostrarModalUserAdmin(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
                   </div>
