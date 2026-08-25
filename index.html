@@ -35,7 +35,7 @@
     const { useState, useEffect } = React;
 
     // =========================================================================
-    // CONFIGURACIÓN DE FIREBASE (FELOSOTEC PROD)
+    // CONFIGURACIÓN DE FIREBASE FIRESTORE (FELOSOTEC PROD)
     // =========================================================================
     const FIREBASE_CONFIG = {
          apiKey: "AIzaSyCIM9dt9BMEdYvfVeGhhsv3MSlu9FmIZzI",
@@ -64,27 +64,64 @@
       "Instalaciones"
     ];
 
+    // PADRÓN ACTUALIZADO CON TUS MODIFICACIONES REALES (22 COLABORADORES)
     const USUARIOS_INICIALES = [
-      { id: '100', username: 'admin', password: 'admin123', nombre: 'ADMINISTRADOR GENERAL', email: 'admin@felosotec.com', celular: '+51900000000', rol: 'ADMINISTRADOR', tipoTrabajo: 'N/A' },
-      { id: '1', username: 'logistica', password: 'logistica123', nombre: 'JERI OBREGON CRISTHINA XIOMARA', email: 'logistica@felosotec.com', celular: '+51900000001', rol: 'ADMIN_LOGISTICA', tipoTrabajo: 'N/A' },
-      { id: '2', username: 'elvis.artica', password: 'supervisor123', nombre: 'ARTICA CIPRIANO ELVIS ALVITES', email: 'elvis.artica@felosotec.com', celular: '+51900000002', rol: 'SUPERVISOR_SOLICITANTE', tipoTrabajo: 'Instalaciones' },
-      { id: '3', username: 'miguel.artica', password: 'tecnico123', nombre: 'ARTICA CIPRIANO MIGUEL ANGEL', email: 'miguel.artica@felosotec.com', celular: '+51900000003', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '4', username: 'sofia.rey', password: 'tecnico123', nombre: 'REY SANCHEZ SUAREZ SOFIA', email: 'sofia.rey@felosotec.com', celular: '+51900000004', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '5', username: 'arnaldo.borja', password: 'tecnico123', nombre: 'BORJA MILLA ARNALDO SAMUEL', email: 'arnaldo.borja@felosotec.com', celular: '+51900000005', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '6', username: 'edisson.chavez', password: 'tecnico123', nombre: 'CHAVEZ NOLASCO EDISSON JOHN', email: 'edisson.chavez@felosotec.com', celular: '+51900000006', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '7', username: 'francisco.garcia', password: 'tecnico123', nombre: 'GARCIA SALVADOR FRANCISCO LONGO', email: 'francisco.garcia@felosotec.com', celular: '+51900000007', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '8', username: 'diego.jimenez', password: 'tecnico123', nombre: 'JIMENEZ LOVATON DIEGO ARMANDO', email: 'diego.jimenez@felosotec.com', celular: '+51900000008', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '9', username: 'felix.loyola', password: 'tecnico123', nombre: 'LOYOLA SOTO FELIX VICTOR', email: 'felix.loyola@felosotec.com', celular: '+51900000009', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '10', username: 'jahir.moran', password: 'tecnico123', nombre: 'MORAN MORALES JAHIR STEVEN', email: 'jahir.moran@felosotec.com', celular: '+51900000010', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '11', username: 'leodan.ordonez', password: 'tecnico123', nombre: 'ORDOÑEZ MARTINEZ LEODAN', email: 'leodan.ordonez@felosotec.com', celular: '+51900000011', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '12', username: 'humberto.ordonez', password: 'tecnico123', nombre: 'ORDOÑEZ MARTÍNEZ HUMBERTO', email: 'humberto.ordonez@felosotec.com', celular: '+51900000012', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '13', username: 'dennis.ortega', password: 'tecnico123', nombre: 'ORTEGA CHOTA DENNIS ANTONIO', email: 'dennis.ortega@felosotec.com', celular: '+51900000013', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '14', username: 'arturo.paredes', password: 'tecnico123', nombre: 'PAREDES ALATRISTA ARTURO LI', email: 'arturo.paredes@felosotec.com', celular: '+51900000014', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '15', username: 'diego.vasquez', password: 'tecnico123', nombre: 'VASQUEZ MARROQUIN DIEGO ALONSO', email: 'diego.vasquez@felosotec.com', celular: '+51900000015', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '16', username: 'diego.rivas', password: 'tecnico123', nombre: 'RIVAS HUANCA DIEGO RAUL', email: 'diego.rivas@felosotec.com', celular: '+51900000016', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '17', username: 'josue.cabanillas', password: 'tecnico123', nombre: 'CABANILLAS AGUSTIN JOSUÉ OSWALDO', email: 'josue.cabanillas@felosotec.com', celular: '+51900000017', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '18', username: 'milton.villacorta', password: 'tecnico123', nombre: 'VILLACORTA GUARNIZ MILTON GREGORIO', email: 'milton.villacorta@felosotec.com', celular: '+51900000018', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
-      { id: '19', username: 'edwin.zevallos', password: 'tecnico123', nombre: 'ZEVALLOS PAGAN EDWIN DAVID', email: 'edwin.zevallos@felosotec.com', celular: '+51900000019', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' }
+      {"id":"100","tipoTrabajo":"N/A","username":"admin","email":"admin@felosotec.com","nombre":"ADMINISTRADOR GENERAL","rol":"ADMINISTRADOR","password":"admin123","celular":"+51900000000"},
+      {"id":"1787668878532","rol":"ADMINISTRADOR","nombre":"ELVIS ARTICA CIPRIANO","celular":"+51947119565","tipoTrabajo":"N/A","password":"Danzig69","username":"elvis.arci@gmail.com","email":"elvis.arci@gmail.com"},
+      {"id":"1787669084314","nombre":"ARANA ALDAVE ALCIDES ALFREDO","tipoTrabajo":"N/A","password":"o$KJ8wDxj8E9X6","email":"aarana@felosotec.com","rol":"ADMIN_LOGISTICA","username":"aarana@felosotec.com","celular":"+51997969814"},
+      {"id":"2","tipoTrabajo":"Mantenimiento Preventivo","nombre":"ARTICA CIPRIANO ELVIS ALVITES","email":"eartica@felosotec.com","password":"W3vGNy@!uo2KiZ","rol":"SUPERVISOR_SOLICITANTE","celular":"+51947119565","username":"eartica@felosotec.com"},
+      {"id":"1","celular":"+51923995690","username":"cjeri@felosotec.com","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","password":"3pUDk4b&2NU7FI","nombre":"JERI OBREGON CRISTHINA XIOMARA","email":"cjeri@felosotec.com"},
+      {"id":"3","celular":"+51947116607","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","username":"martica@felosotec.com","email":"martica@felosotec.com","nombre":"ARTICA CIPRIANO MIGUEL ANGEL","password":"&oYTZ#54zW8agn"},
+      {"id":"4","nombre":"REY SANCHEZ SUAREZ SOFIA","username":"sofia.rey","password":"tecnico123","rol":"TECNICO_EJECUTANTE","celular":"+51900000004","email":"sofia.rey@felosotec.com","tipoTrabajo":"N/A"},
+      {"id":"5","nombre":"BORJA MILLA ARNALDO SAMUEL","tipoTrabajo":"N/A","password":"tecnico123","username":"arnaldo.borja","rol":"TECNICO_EJECUTANTE","celular":"+51900000005","email":"arnaldo.borja@felosotec.com"},
+      {"id":"6","nombre":"CHAVEZ NOLASCO EDISSON JOHN","celular":"+51900000006","email":"edisson.chavez@felosotec.com","tipoTrabajo":"N/A","username":"edisson.chavez","password":"tecnico123","rol":"TECNICO_EJECUTANTE"},
+      {"id":"7","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","celular":"+51900000007","email":"francisco.garcia@felosotec.com","nombre":"GARCIA SALVADOR FRANCISCO LONGO","password":"tecnico123","username":"francisco.garcia"},
+      {"id":"8","nombre":"JIMENEZ LOVATON DIEGO ARMANDO","email":"diego.jimenez@felosotec.com","celular":"+51900000008","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","password":"tecnico123","username":"diego.jimenez"},
+      {"id":"9","email":"felix.loyola@felosotec.com","tipoTrabajo":"N/A","password":"tecnico123","celular":"+51900000009","nombre":"LOYOLA SOTO FELIX VICTOR","username":"felix.loyola","rol":"TECNICO_EJECUTANTE"},
+      {"id":"10","username":"jahir.moran","celular":"+51900000010","password":"tecnico123","email":"jahir.moran@felosotec.com","tipoTrabajo":"N/A","nombre":"MORAN MORALES JAHIR STEVEN","rol":"TECNICO_EJECUTANTE"},
+      {"id":"11","username":"leodan.ordonez","nombre":"ORDOÑEZ MARTINEZ LEODAN","password":"tecnico123","celular":"+51900000011","rol":"TECNICO_EJECUTANTE","tipoTrabajo":"N/A","email":"leodan.ordonez@felosotec.com"},
+      {"id":"12","tipoTrabajo":"N/A","nombre":"ORDOÑEZ MARTÍNEZ HUMBERTO","rol":"TECNICO_EJECUTANTE","username":"humberto.ordonez","password":"tecnico123","celular":"+51900000012","email":"humberto.ordonez@felosotec.com"},
+      {"id":"13","nombre":"ORTEGA CHOTA DENNIS ANTONIO","password":"tecnico123","tipoTrabajo":"N/A","celular":"+51900000013","email":"dennis.ortega@felosotec.com","username":"dennis.ortega","rol":"TECNICO_EJECUTANTE"},
+      {"id":"14","username":"arturo.paredes","celular":"+51900000014","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","email":"arturo.paredes@felosotec.com","password":"tecnico123","nombre":"PAREDES ALATRISTA ARTURO LI"},
+      {"id":"15","celular":"+51900000015","rol":"TECNICO_EJECUTANTE","tipoTrabajo":"N/A","username":"diego.vasquez","email":"diego.vasquez@felosotec.com","nombre":"VASQUEZ MARROQUIN DIEGO ALONSO","password":"tecnico123"},
+      {"id":"16","email":"diego.rivas@felosotec.com","celular":"+51900000016","rol":"TECNICO_EJECUTANTE","nombre":"RIVAS HUANCA DIEGO RAUL","tipoTrabajo":"N/A","username":"diego.rivas","password":"tecnico123"},
+      {"id":"17","celular":"+51900000017","rol":"TECNICO_EJECUTANTE","email":"josue.cabanillas@felosotec.com","username":"josue.cabanillas","tipoTrabajo":"N/A","password":"tecnico123","nombre":"CABANILLAS AGUSTIN JOSUÉ OSWALDO"},
+      {"id":"18","celular":"+51900000018","tipoTrabajo":"N/A","nombre":"VILLACORTA GUARNIZ MILTON GREGORIO","username":"milton.villacorta","rol":"TECNICO_EJECUTANTE","password":"tecnico123","email":"milton.villacorta@felosotec.com"},
+      {"id":"19","email":"edwin.zevallos@felosotec.com","tipoTrabajo":"N/A","nombre":"ZEVALLOS PAGAN EDWIN DAVID","username":"edwin.zevallos","celular":"+51900000019","password":"tecnico123","rol":"TECNICO_EJECUTANTE"}
+    ];
+
+    // ÓRDENES INICIALES ACTUALIZADAS CON TU REGISTRO REAL
+    const ORDENES_INICIALES = [
+      {
+        "id": "1787671727051",
+        "supervisorId": "2",
+        "codigoOit": "123456",
+        "estado": "SOLICITADO",
+        "supervisorNombre": "ARTICA CIPRIANO ELVIS ALVITES",
+        "supervisorEmail": "eartica@felosotec.com",
+        "tecnicoId": "3",
+        "tecnicoNombre": "ARTICA CIPRIANO MIGUEL ANGEL",
+        "tecnicoEmail": "martica@felosotec.com",
+        "responsableDespacho": "ARANA ALDAVE ALCIDES ALFREDO",
+        "despachadoPorUsuario": null,
+        "fechaSolicitud": "25/08/2026 10:28:47",
+        "fechaEntrega": null,
+        "fechaCierre": null,
+        "tipoTrabajo": "Mantenimiento Preventivo",
+        "cliente": "falabella",
+        "historialMovimientos": [
+          {
+            "usuario": "ARTICA CIPRIANO ELVIS ALVITES",
+            "accion": "Registro de Requerimiento OIT y envío de correo a aarana@felosotec.com con CC a martica@felosotec.com",
+            "fechaHora": "25/08/2026 10:28:47"
+          }
+        ],
+        "items": [
+          {"id":"1787671682521","categoria":"MATERIAL","cantidadInstalada":0,"cantidadDevuelta":0,"estadoRetorno":"OPERATIVO","serieActivo":"","destino":"NODO","cantidadSolicitada":1,"unidad":"UND","descripcion":"sgrdda"},
+          {"cantidadDevuelta":0,"cantidadInstalada":0,"cantidadSolicitada":1,"serieActivo":"DfAD","categoria":"HERRAMIENTA","destino":"NODO","id":"1787671689785","unidad":"UND","estadoRetorno":"OPERATIVO","descripcion":"DADdf"},
+          {"cantidadInstalada":0,"descripcion":"dSDdSD","categoria":"EQUIPO","unidad":"UND","cantidadSolicitada":13,"serieActivo":"FDFfd","id":"1787671699443","cantidadDevuelta":0,"estadoRetorno":"OPERATIVO","destino":"NODO"}
+        ]
+      }
     ];
 
     const ESTADO_COLORES = {
@@ -119,7 +156,7 @@
 
       const [ordenes, setOrdenes] = useState(() => {
         const o = localStorage.getItem('FELOSOTEC_ORDENES_AUTH_V3');
-        return o ? JSON.parse(o) : [];
+        return o ? JSON.parse(o) : ORDENES_INICIALES;
       });
 
       // Modales
@@ -196,9 +233,15 @@
         }, (err) => console.error("Error usuarios Firestore:", err));
 
         const unsubOrdenes = db.collection('ordenes_oit').onSnapshot((snap) => {
-          const listO = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setOrdenes(listO);
-          localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V3', JSON.stringify(listO));
+          if (snap.empty) {
+            ORDENES_INICIALES.forEach(o => {
+              db.collection('ordenes_oit').doc(o.id).set(o);
+            });
+          } else {
+            const listO = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setOrdenes(listO);
+            localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V3', JSON.stringify(listO));
+          }
         }, (err) => console.error("Error órdenes Firestore:", err));
 
         return () => {
@@ -225,7 +268,7 @@
         setNotificacionEmailSimulada({ remitente, para, cc, asunto, mensaje, timestamp: formatearFechaHora() });
       };
 
-      // --- LOGIN ---
+      // --- LOGIN (ACEPTA TANTO USERNAME COMO EMAIL) ---
       const handleLogin = (e) => {
         e.preventDefault();
         const entrada = loginUser.trim().toLowerCase();
@@ -444,7 +487,7 @@
         const ahora = formatearFechaHora();
         const supervisorActual = usuarioAutenticado;
         const tecnicoObj = usuarios.find(u => u.id === tecnicoAsignadoId) || tecnicos[0];
-        const logisticaObj = usuarios.find(u => u.rol === 'ADMIN_LOGISTICA') || { nombre: 'JERI OBREGON CRISTHINA XIOMARA', email: 'logistica@felosotec.com' };
+        const logisticaObj = usuarios.find(u => u.rol === 'ADMIN_LOGISTICA') || { nombre: 'ARANA ALDAVE ALCIDES ALFREDO', email: 'aarana@felosotec.com' };
 
         const nuevaOrden = {
           id: Date.now().toString(),
@@ -483,7 +526,7 @@
 
         dispararNotificacionCorreo({
           remitente: supervisorActual.email,
-          para: 'logistica@felosotec.com',
+          para: logisticaObj.email || 'aarana@felosotec.com',
           cc: tecnicoObj.email,
           asunto: asuntoCorreo,
           mensaje: cuerpoCorreo
@@ -576,7 +619,7 @@
       const despacharOrden = async (id) => {
         const ahora = formatearFechaHora();
         const despachadorNombre = usuarioAutenticado.nombre;
-        const despachadorEmail = usuarioAutenticado.email || 'logistica@felosotec.com';
+        const despachadorEmail = usuarioAutenticado.email || 'aarana@felosotec.com';
 
         const ordenActual = ordenes.find(o => o.id === id);
         const ordenActualizada = {
@@ -597,7 +640,7 @@
         dispararNotificacionCorreo({
           remitente: despachadorEmail,
           para: ordenActual.supervisorEmail,
-          cc: `${ordenActual.tecnicoEmail}, logistica@felosotec.com`,
+          cc: `${ordenActual.tecnicoEmail}, ${despachadorEmail}`,
           asunto: `Re: Solicitud de Equipos y/o Materiales (${ordenActual.codigoOit} y ${ordenActual.cliente}) - DESPACHO REALIZADO`,
           mensaje: `Estimado(a) ${ordenActual.supervisorNombre} y Técnico ${ordenActual.tecnicoNombre},\n\nSe informa que se REALIZÓ EL DESPACHO DE LOS EQUIPOS Y/O MATERIALES solicitados bajo la OIT/TK ${ordenActual.codigoOit}.\n\n- Despachado por: ${despachadorNombre}\n- Fecha y Hora de Despacho: ${ahora}\n- Cliente: ${ordenActual.cliente}\n\nÍTEMS ENTREGADOS:\n${ordenActual.items.map(i => `• [${i.categoria}] ${i.descripcion} | Cant: ${i.cantidadSolicitada} ${i.unidad} | Destino: ${i.destino}${i.serieActivo ? ` (S/N: ${i.serieActivo})` : ''}`).join('\n')}\n\nPor favor proceder con la recepción física y la posterior liquidación tras la culminación de los trabajos.`
         });
@@ -625,6 +668,7 @@
         const ahora = formatearFechaHora();
         const tecnicoNombre = usuarioAutenticado.nombre;
         const tecnicoEmail = usuarioAutenticado.email;
+        const logisticaObj = usuarios.find(u => u.rol === 'ADMIN_LOGISTICA') || { email: 'aarana@felosotec.com' };
 
         const ordenActualizada = {
           ...oitParaLiquidar,
@@ -641,7 +685,7 @@
 
         dispararNotificacionCorreo({
           remitente: tecnicoEmail,
-          para: 'logistica@felosotec.com',
+          para: logisticaObj.email,
           cc: `${ordenActualizada.supervisorEmail}, ${tecnicoEmail}`,
           asunto: `Re: Solicitud de Equipos y/o Materiales (${ordenActualizada.codigoOit} y ${ordenActualizada.cliente}) - TRABAJO REALIZADO Y LIQUIDACIÓN`,
           mensaje: `Estimada Área de Logística y Supervisor ${ordenActualizada.supervisorNombre},\n\nSe informa que se REALIZÓ EL TRABAJO en campo y se responde con los materiales y equipos usados para su respectivo control:\n\n- OIT / TK: ${ordenActualizada.codigoOit}\n- Cliente: ${ordenActualizada.cliente}\n- Técnico Ejecutante: ${tecnicoNombre}\n- Fecha de Cierre de Trabajo: ${ahora}\n\nDETALLE DE LIQUIDACIÓN:\n${ordenActualizada.items.map(i => `• [${i.categoria}] ${i.descripcion} -> Solicitado: ${i.cantidadSolicitada} ${i.unidad} | INSTALADO EN CLIENTE: ${i.cantidadInstalada || 0} | SOBRANTE/DEVUELTO: ${i.cantidadDevuelta || 0} | Estado Retorno: ${i.estadoRetorno || 'N/A'}`).join('\n')}\n\nSe solicita la conciliación final en almacén.`
@@ -653,7 +697,7 @@
       const conciliarYCerrar = async (id) => {
         const ahora = formatearFechaHora();
         const responsableNombre = usuarioAutenticado.nombre;
-        const responsableEmail = usuarioAutenticado.email || 'logistica@felosotec.com';
+        const responsableEmail = usuarioAutenticado.email || 'aarana@felosotec.com';
 
         const ordenActual = ordenes.find(o => o.id === id);
         const ordenActualizada = {
@@ -672,7 +716,7 @@
         dispararNotificacionCorreo({
           remitente: responsableEmail,
           para: ordenActual.supervisorEmail,
-          cc: `${ordenActual.tecnicoEmail}, logistica@felosotec.com`,
+          cc: `${ordenActual.tecnicoEmail}, ${responsableEmail}`,
           asunto: `Re: Solicitud de Equipos y/o Materiales (${ordenActual.codigoOit} y ${ordenActual.cliente}) - FINALIZACIÓN Y CONCILIACIÓN CONFORME`,
           mensaje: `Estimados,\n\nSe informa la FINALIZACIÓN DEL TRABAJO correspondiente a la OIT/TK ${ordenActual.codigoOit} (${ordenActual.cliente}).\n\nTodos los materiales y equipos fueron COTEJADOS satisfactoriamente en almacén y se finalizó la devolución y conciliación formal bajo el formato LOG_RE_03 v03.\n\n- Responsable de Conciliación: ${responsableNombre}\n- Fecha de Cierre: ${ahora}\n\nLa orden queda archivada y cerrada en el sistema.`
         });
@@ -691,7 +735,7 @@
         }
 
         lista.forEach(o => {
-          o.items.forEach(i => {
+          o.items?.forEach(i => {
             rows.push({
               "CÓDIGO OIT": o.codigoOit,
               "CLIENTE": o.cliente,
@@ -754,7 +798,7 @@
         doc.text(`F. ENTREGA: ${o.fechaEntrega || 'PENDIENTE'}`, 130, 42);
         doc.text(`F. CIERRE: ${o.fechaCierre || 'PENDIENTE'}`, 130, 47);
 
-        const tableBody = o.items.map(it => [
+        const tableBody = o.items?.map(it => [
           it.categoria,
           it.descripcion + (it.serieActivo ? ` (S/N: ${it.serieActivo})` : ''),
           it.destino,
@@ -762,7 +806,7 @@
           (it.cantidadInstalada || 0) + ' ' + it.unidad,
           (it.cantidadDevuelta || 0) + ' ' + it.unidad,
           it.estadoRetorno || 'N/A'
-        ]);
+        ]) || [];
 
         doc.autoTable({
           startY: 62,
@@ -780,7 +824,7 @@
         doc.text("HISTORIAL DE MOVIMIENTOS Y NOTIFICACIONES:", 14, finalY);
         finalY += 4;
         
-        const historyBody = o.historialMovimientos.map(h => [h.fechaHora, h.usuario, h.accion]);
+        const historyBody = o.historialMovimientos?.map(h => [h.fechaHora, h.usuario, h.accion]) || [];
         doc.autoTable({
           startY: finalY,
           head: [['Fecha y Hora', 'Usuario Responsable', 'Acción y Notificación']],
@@ -844,7 +888,7 @@
                   <input 
                     type="text" 
                     required
-                    placeholder="Ej. admin, logistica, elvis.artica@felosotec.com"
+                    placeholder="Ej. aarana@felosotec.com, eartica@felosotec.com"
                     value={loginUser}
                     onChange={e => setLoginUser(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
@@ -872,11 +916,11 @@
               </form>
 
               <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-                <p className="font-semibold text-slate-300">Accesos Predeterminados:</p>
+                <p className="font-semibold text-slate-300">Accesos Habilitados (Padrón 22 Usuarios):</p>
+                <p>• <b>Admin Logística:</b> <code className="text-amber-400">aarana@felosotec.com</code> / <code className="text-amber-400">o$KJ8wDxj8E9X6</code></p>
+                <p>• <b>Supervisor:</b> <code className="text-amber-400">eartica@felosotec.com</code> / <code className="text-amber-400">W3vGNy@!uo2KiZ</code></p>
+                <p>• <b>Técnico:</b> <code className="text-amber-400">martica@felosotec.com</code> / <code className="text-amber-400">&oYTZ#54zW8agn</code></p>
                 <p>• <b>Admin General:</b> <code className="text-amber-400">admin</code> / <code className="text-amber-400">admin123</code></p>
-                <p>• <b>Admin Logística:</b> <code className="text-amber-400">logistica</code> / <code className="text-amber-400">logistica123</code></p>
-                <p>• <b>Supervisor:</b> <code className="text-amber-400">elvis.artica</code> / <code className="text-amber-400">supervisor123</code></p>
-                <p>• <b>Técnico:</b> <code className="text-amber-400">sofia.rey</code> / <code className="text-amber-400">tecnico123</code></p>
               </div>
             </div>
           </div>
@@ -888,9 +932,9 @@
       // ==========================================
       const rol = usuarioAutenticado.rol;
 
-      // Generador de enlace directo a Gmail
-      const generarEnlaceGmail = (para, cc, asunto, mensaje) => {
-        return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(para)}&cc=${encodeURIComponent(cc)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
+      // Enlace directo a Gmail web seleccionando la cuenta de dominio del supervisor
+      const generarEnlaceGmailCorporativo = (remitenteEmail, para, cc, asunto, mensaje) => {
+        return `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(remitenteEmail)}&view=cm&fs=1&to=${encodeURIComponent(para)}&cc=${encodeURIComponent(cc)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
       };
 
       return (
@@ -919,7 +963,7 @@
                 </div>
               </div>
 
-              {/* BOTÓN GESTOR DE MI CONTRASEÑA */}
+              {/* GESTOR DE CONTRASEÑA */}
               <button 
                 onClick={() => setMostrarModalCambiarMiPassword(true)}
                 title="Modificar mi contraseña de acceso"
@@ -1140,7 +1184,7 @@
                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                       <div>
                         <h3 className="text-base font-bold text-white">📝 Nuevo Requerimiento OIT / TK</h3>
-                        <p className="text-[11px] text-slate-400">Notificación automática a <b>logistica@felosotec.com</b> con copia al técnico</p>
+                        <p className="text-[11px] text-slate-400">Notificación automática a <b>aarana@felosotec.com</b> con copia al técnico</p>
                       </div>
                       <span className="text-xs bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded border border-amber-500/20 font-bold">
                         {usuarioAutenticado.tipoTrabajo}
@@ -1497,7 +1541,7 @@
                         <label className="block text-slate-400 mb-0.5">Cant.</label>
                         <input 
                           type="number" 
-                          min="1"
+                          min="1" 
                           value={editItemCant} 
                           onChange={e => setEditItemCant(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
@@ -1554,7 +1598,7 @@
                               <label className="text-[10px] text-slate-400 block">Cant. Solicitada</label>
                               <input 
                                 type="number" 
-                                min="1"
+                                min="1" 
                                 value={it.cantidadSolicitada}
                                 onChange={e => actualizarCampoItemEnEdicion(it.id, 'cantidadSolicitada', Number(e.target.value))}
                                 className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
@@ -1722,7 +1766,7 @@
               </div>
             )}
 
-            {/* MODAL: VISOR DE CORREO AUTOMÁTICO (DIRECTO A GMAIL WEB O LOCAL) */}
+            {/* MODAL: VISOR DE CORREO AUTOMÁTICO (DIRECTO A GMAIL CORPORATIVO Y GESTOR LOCAL) */}
             {notificacionEmailSimulada && (
               <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-slate-950 border border-amber-500/50 rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
@@ -1730,7 +1774,7 @@
                     <div className="flex items-center gap-2">
                       <span className="text-xl">📧</span>
                       <div>
-                        <h3 className="text-sm font-bold text-white">Notificación por Correo</h3>
+                        <h3 className="text-sm font-bold text-white">Notificación por Correo Institucional</h3>
                         <p className="text-[11px] text-amber-400 font-mono">{notificacionEmailSimulada.timestamp}</p>
                       </div>
                     </div>
@@ -1738,8 +1782,8 @@
                   </div>
 
                   <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 text-xs space-y-2 font-mono">
-                    <p><span className="text-slate-400">De (Remitente):</span> <b className="text-white">{notificacionEmailSimulada.remitente}</b></p>
-                    <p><span className="text-slate-400">Para:</span> <b className="text-amber-400">{notificacionEmailSimulada.para}</b></p>
+                    <p><span className="text-slate-400">De (Supervisor/Remitente):</span> <b className="text-amber-400">{notificacionEmailSimulada.remitente}</b></p>
+                    <p><span className="text-slate-400">Para:</span> <b className="text-white">{notificacionEmailSimulada.para}</b></p>
                     <p><span className="text-slate-400">Con Copia (CC):</span> <b className="text-sky-400">{notificacionEmailSimulada.cc}</b></p>
                     <p><span className="text-slate-400">Asunto:</span> <b className="text-white">{notificacionEmailSimulada.asunto}</b></p>
                     
@@ -1749,9 +1793,9 @@
                   </div>
 
                   <div className="flex flex-wrap gap-2 justify-end pt-1">
-                    {/* BOTÓN 1: GMAIL WEB */}
+                    {/* BOTÓN 1: GMAIL WEB CON CUENTA @FELOSOTEC.COM */}
                     <a 
-                      href={generarEnlaceGmail(notificacionEmailSimulada.para, notificacionEmailSimulada.cc, notificacionEmailSimulada.asunto, notificacionEmailSimulada.mensaje)}
+                      href={generarEnlaceGmailCorporativo(notificacionEmailSimulada.remitente, notificacionEmailSimulada.para, notificacionEmailSimulada.cc, notificacionEmailSimulada.asunto, notificacionEmailSimulada.mensaje)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded text-xs transition flex items-center gap-1.5 shadow-lg shadow-rose-600/20"
@@ -1759,12 +1803,12 @@
                       <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                         <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.272H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L12 9.545l8.073-6.052C21.69 2.28 24 3.434 24 5.457z"/>
                       </svg>
-                      Abrir en Gmail
+                      Abrir en Gmail ({notificacionEmailSimulada.remitente})
                     </a>
 
-                    {/* BOTÓN 2: GESTOR LOCAL (MAILTO) */}
+                    {/* BOTÓN 2: GESTOR DE CORREO LOCAL (MAILTO) */}
                     <a 
-                      href={`mailto:${notificacionEmailSimulada.para}?cc=${encodeURIComponent(notificacionEmailSimulada.cc)}&subject=${encodeURIComponent(notificacionEmailSimulada.asunto)}&body=${encodeURIComponent(notificacionEmailSimulada.mensaje)}`}
+                      href={`mailto:${encodeURIComponent(notificacionEmailSimulada.para)}?from=${encodeURIComponent(notificacionEmailSimulada.remitente)}&cc=${encodeURIComponent(notificacionEmailSimulada.cc)}&subject=${encodeURIComponent(notificacionEmailSimulada.asunto)}&body=${encodeURIComponent(notificacionEmailSimulada.mensaje)}`}
                       className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold px-3 py-2 rounded text-xs transition"
                     >
                       Gestor Local
