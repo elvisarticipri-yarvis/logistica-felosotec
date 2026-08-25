@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FELOSOTEC E.I.R.L. | Dashboard Logística LOG_RE_03</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- SheetJS & jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const TIPOS_TRABAJO = [
+      "Mantenimiento Preventivo",
+      "Mantenimiento Correctivo",
+      "Instalaciones"
+    ];
+
+    const USUARIOS_INICIALES = [
+      { id: '100', username: 'admin', password: 'admin123', nombre: 'ADMINISTRADOR GENERAL', email: 'admin@felosotec.com', celular: '+51900000000', rol: 'ADMINISTRADOR', tipoTrabajo: 'N/A' },
+      { id: '1', username: 'logistica', password: 'logistica123', nombre: 'JERI OBREGON CRISTHINA XIOMARA', email: 'logistica@felosotec.com', celular: '+51900000001', rol: 'ADMIN_LOGISTICA', tipoTrabajo: 'N/A' },
+      { id: '2', username: 'elvis.artica', password: 'supervisor123', nombre: 'ARTICA CIPRIANO ELVIS ALVITES', email: 'elvis.artica@felosotec.com', celular: '+51900000002', rol: 'SUPERVISOR_SOLICITANTE', tipoTrabajo: 'Instalaciones' },
+      { id: '3', username: 'miguel.artica', password: 'tecnico123', nombre: 'ARTICA CIPRIANO MIGUEL ANGEL', email: 'miguel.artica@felosotec.com', celular: '+51900000003', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '4', username: 'sofia.rey', password: 'tecnico123', nombre: 'REY SANCHEZ SUAREZ SOFIA', email: 'sofia.rey@felosotec.com', celular: '+51900000004', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '5', username: 'arnaldo.borja', password: 'tecnico123', nombre: 'BORJA MILLA ARNALDO SAMUEL', email: 'arnaldo.borja@felosotec.com', celular: '+51900000005', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '6', username: 'edisson.chavez', password: 'tecnico123', nombre: 'CHAVEZ NOLASCO EDISSON JOHN', email: 'edisson.chavez@felosotec.com', celular: '+51900000006', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '7', username: 'francisco.garcia', password: 'tecnico123', nombre: 'GARCIA SALVADOR FRANCISCO LONGO', email: 'francisco.garcia@felosotec.com', celular: '+51900000007', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '8', username: 'diego.jimenez', password: 'tecnico123', nombre: 'JIMENEZ LOVATON DIEGO ARMANDO', email: 'diego.jimenez@felosotec.com', celular: '+51900000008', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '9', username: 'felix.loyola', password: 'tecnico123', nombre: 'LOYOLA SOTO FELIX VICTOR', email: 'felix.loyola@felosotec.com', celular: '+51900000009', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '10', username: 'jahir.moran', password: 'tecnico123', nombre: 'MORAN MORALES JAHIR STEVEN', email: 'jahir.moran@felosotec.com', celular: '+51900000010', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '11', username: 'leodan.ordonez', password: 'tecnico123', nombre: 'ORDOÑEZ MARTINEZ LEODAN', email: 'leodan.ordonez@felosotec.com', celular: '+51900000011', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '12', username: 'humberto.ordonez', password: 'tecnico123', nombre: 'ORDOÑEZ MARTÍNEZ HUMBERTO', email: 'humberto.ordonez@felosotec.com', celular: '+51900000012', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '13', username: 'dennis.ortega', password: 'tecnico123', nombre: 'ORTEGA CHOTA DENNIS ANTONIO', email: 'dennis.ortega@felosotec.com', celular: '+51900000013', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '14', username: 'arturo.paredes', password: 'tecnico123', nombre: 'PAREDES ALATRISTA ARTURO LI', email: 'arturo.paredes@felosotec.com', celular: '+51900000014', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '15', username: 'diego.vasquez', password: 'tecnico123', nombre: 'VASQUEZ MARROQUIN DIEGO ALONSO', email: 'diego.vasquez@felosotec.com', celular: '+51900000015', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '16', username: 'diego.rivas', password: 'tecnico123', nombre: 'RIVAS HUANCA DIEGO RAUL', email: 'diego.rivas@felosotec.com', celular: '+51900000016', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '17', username: 'josue.cabanillas', password: 'tecnico123', nombre: 'CABANILLAS AGUSTIN JOSUÉ OSWALDO', email: 'josue.cabanillas@felosotec.com', celular: '+51900000017', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '18', username: 'milton.villacorta', password: 'tecnico123', nombre: 'VILLACORTA GUARNIZ MILTON GREGORIO', email: 'milton.villacorta@felosotec.com', celular: '+51900000018', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' },
+      { id: '19', username: 'edwin.zevallos', password: 'tecnico123', nombre: 'ZEVALLOS PAGAN EDWIN DAVID', email: 'edwin.zevallos@felosotec.com', celular: '+51900000019', rol: 'TECNICO_EJECUTANTE', tipoTrabajo: 'N/A' }
+    ];
+
+    const ESTADO_COLORES = {
+      SOLICITADO: "bg-amber-500/10 text-amber-400 border border-amber-500/30",
+      DESPACHADO: "bg-sky-500/10 text-sky-400 border border-sky-500/30",
+      TRABAJO_FINALIZADO: "bg-purple-500/10 text-purple-400 border border-purple-500/30",
+      CERRADO_CONCILIADO: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30",
+      PENDIENTE: "bg-orange-500/10 text-orange-400 border border-orange-500/30",
+      CANCELADO: "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+    };
+
+    const formatearFechaHora = () => {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+
+    function App() {
+      const [usuarios, setUsuarios] = useState(() => {
+        const u = localStorage.getItem('FELOSOTEC_USUARIOS_AUTH_V2');
+        return u ? JSON.parse(u) : USUARIOS_INICIALES;
+      });
+
+      const [usuarioAutenticado, setUsuarioAutenticado] = useState(() => {
+        const s = localStorage.getItem('FELOSOTEC_AUTH_SESSION_V2');
+        return s ? JSON.parse(s) : null;
+      });
+
+      const [loginUser, setLoginUser] = useState('');
+      const [loginPass, setLoginPass] = useState('');
+      const [errorLogin, setErrorLogin] = useState('');
+
+      const [ordenes, setOrdenes] = useState(() => {
+        const o = localStorage.getItem('FELOSOTEC_ORDENES_AUTH_V2');
+        if (o) return JSON.parse(o);
+        return [
+          {
+            id: '1',
+            codigoOit: 'S486299',
+            cliente: 'SUPERMERCADOS PERUANOS S.P.S.A.',
+            tipoTrabajo: 'Instalaciones',
+            supervisorId: '2',
+            supervisorNombre: 'ARTICA CIPRIANO ELVIS ALVITES',
+            supervisorEmail: 'elvis.artica@felosotec.com',
+            tecnicoId: '4',
+            tecnicoNombre: 'REY SANCHEZ SUAREZ SOFIA',
+            tecnicoEmail: 'sofia.rey@felosotec.com',
+            responsableDespacho: 'JERI OBREGON CRISTHINA XIOMARA',
+            despachadoPorUsuario: 'JERI OBREGON CRISTHINA XIOMARA',
+            fechaSolicitud: '23/08/2026 10:30:00',
+            fechaEntrega: '23/08/2026 11:15:00',
+            fechaCierre: null,
+            estado: 'DESPACHADO',
+            historialMovimientos: [
+              { fechaHora: '23/08/2026 10:30:00', usuario: 'ARTICA CIPRIANO ELVIS ALVITES', accion: 'Creación de Requerimiento OIT y envío de correo a logistica@felosotec.com con copia al técnico' },
+              { fechaHora: '23/08/2026 11:15:00', usuario: 'JERI OBREGON CRISTHINA XIOMARA', accion: 'Despacho Físico y respuesta de correo confirmando entrega de equipos/materiales' }
+            ],
+            items: [
+              { id: '101', categoria: 'MATERIAL', descripcion: 'Cintillos Blancos 200mm', unidad: 'UND', cantidadSolicitada: 50, destino: 'CLIENTE', cantidadInstalada: 45, cantidadDevuelta: 5, estadoRetorno: 'OPERATIVO' },
+              { id: '102', categoria: 'EQUIPO', descripcion: 'Router H3C MSR1008', serieActivo: 'H3C-99281-PE', unidad: 'UND', cantidadSolicitada: 1, destino: 'CLIENTE', cantidadInstalada: 1, cantidadDevuelta: 0, estadoRetorno: 'OPERATIVO' },
+              { id: '103', categoria: 'HERRAMIENTA', descripcion: 'Ponchadora RJ45 AMP', serieActivo: 'TOOL-044', unidad: 'UND', cantidadSolicitada: 1, destino: 'NODO', cantidadInstalada: 0, cantidadDevuelta: 1, estadoRetorno: 'OPERATIVO' }
+            ]
+          }
+        ];
+      });
+
+      useEffect(() => {
+        localStorage.setItem('FELOSOTEC_USUARIOS_AUTH_V2', JSON.stringify(usuarios));
+      }, [usuarios]);
+
+      useEffect(() => {
+        localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V2', JSON.stringify(ordenes));
+      }, [ordenes]);
+
+      useEffect(() => {
+        if (usuarioAutenticado) {
+          localStorage.setItem('FELOSOTEC_AUTH_SESSION_V2', JSON.stringify(usuarioAutenticado));
+        } else {
+          localStorage.removeItem('FELOSOTEC_AUTH_SESSION_V2');
+        }
+      }, [usuarioAutenticado]);
+
+      // Modales y Estados de UI
+      const [mostrarModalUserAdmin, setMostrarModalUserAdmin] = useState(false);
+      const [mostrarModalCrearTecnicoSupervisor, setMostrarModalCrearTecnicoSupervisor] = useState(false);
+      const [usuarioEnEdicion, setUsuarioEnEdicion] = useState(null);
+      const [notificacionEmailSimulada, setNotificacionEmailSimulada] = useState(null);
+
+      // Campos Usuario
+      const [userUsername, setUserUsername] = useState('');
+      const [userPassword, setUserPassword] = useState('');
+      const [userNombre, setUserNombre] = useState('');
+      const [userEmail, setUserEmail] = useState('');
+      const [userCelular, setUserCelular] = useState('');
+      const [userRol, setUserRol] = useState('TECNICO_EJECUTANTE');
+      const [userTipoTrabajo, setUserTipoTrabajo] = useState('Instalaciones');
+
+      // Campos Alta Técnico
+      const [tecNombre, setTecNombre] = useState('');
+      const [tecEmail, setTecEmail] = useState('');
+      const [tecCelular, setTecCelular] = useState('');
+
+      // Modal Edición OIT / Ítems
+      const [oitEnEdicion, setOitEnEdicion] = useState(null);
+      const [editItemDesc, setEditItemDesc] = useState('');
+      const [editItemSerie, setEditItemSerie] = useState('');
+      const [editItemUnidad, setEditItemUnidad] = useState('UND');
+      const [editItemCant, setEditItemCant] = useState(1);
+      const [editItemCat, setEditItemCat] = useState('MATERIAL');
+      const [editItemDestino, setEditItemDestino] = useState('CLIENTE');
+
+      // Modal Auditoría
+      const [oitParaAuditoria, setOitParaAuditoria] = useState(null);
+
+      // Form Solicitud Supervisor
+      const [codigoOit, setCodigoOit] = useState('');
+      const [cliente, setCliente] = useState('SUPERMERCADOS PERUANOS S.P.S.A.');
+      const [tecnicoAsignadoId, setTecnicoAsignadoId] = useState('');
+      const [tabActiva, setTabActiva] = useState('MATERIAL');
+      const [itemsBorrador, setItemsBorrador] = useState([]);
+
+      // Inputs temporal ítem
+      const [itemDesc, setItemDesc] = useState('');
+      const [itemSerie, setItemSerie] = useState('');
+      const [itemUnidad, setItemUnidad] = useState('UND');
+      const [itemCant, setItemCant] = useState(1);
+      const [itemDestino, setItemDestino] = useState('CLIENTE');
+
+      // Modal Liquidación Técnico
+      const [oitParaLiquidar, setOitParaLiquidar] = useState(null);
+
+      const tecnicos = usuarios.filter(u => u.rol === 'TECNICO_EJECUTANTE');
+
+      useEffect(() => {
+        if (tecnicos.length > 0 && !tecnicoAsignadoId) {
+          setTecnicoAsignadoId(tecnicos[0].id);
+        }
+      }, [tecnicos]);
+
+      // --- HELPERS DE CORREO AUTOMÁTICO ---
+      const dispararNotificacionCorreo = ({ remitente, para, cc, asunto, mensaje }) => {
+        setNotificacionEmailSimulada({ remitente, para, cc, asunto, mensaje, timestamp: formatearFechaHora() });
+      };
+
+      // --- AUTENTICACIÓN ---
+      const handleLogin = (e) => {
+        e.preventDefault();
+        const found = usuarios.find(u => u.username.toLowerCase() === loginUser.trim().toLowerCase() && u.password === loginPass);
+        if (found) {
+          setUsuarioAutenticado(found);
+          setErrorLogin('');
+          setLoginUser('');
+          setLoginPass('');
+        } else {
+          setErrorLogin('Usuario o contraseña incorrectos. Verifique sus credenciales.');
+        }
+      };
+
+      const handleLogout = () => {
+        setUsuarioAutenticado(null);
+      };
+
+      // --- GESTIÓN USUARIOS ADMIN ---
+      const abrirCreacionUsuarioAdmin = () => {
+        setUsuarioEnEdicion(null);
+        setUserUsername('');
+        setUserPassword('');
+        setUserNombre('');
+        setUserEmail('');
+        setUserCelular('');
+        setUserRol('TECNICO_EJECUTANTE');
+        setUserTipoTrabajo('Instalaciones');
+      };
+
+      const abrirEdicionUsuarioAdmin = (u) => {
+        setUsuarioEnEdicion(u);
+        setUserUsername(u.username);
+        setUserPassword(u.password);
+        setUserNombre(u.nombre);
+        setUserEmail(u.email);
+        setUserCelular(u.celular);
+        setUserRol(u.rol);
+        setUserTipoTrabajo(u.tipoTrabajo || 'Instalaciones');
+      };
+
+      const guardarUsuarioAdmin = (e) => {
+        e.preventDefault();
+        if (!userUsername.trim() || !userPassword.trim() || !userNombre.trim()) {
+          return alert('Complete todos los campos obligatorios.');
+        }
+
+        const ahora = formatearFechaHora();
+        const tipoFinal = userRol === 'SUPERVISOR_SOLICITANTE' ? userTipoTrabajo : 'N/A';
+
+        if (usuarioEnEdicion) {
+          setUsuarios(usuarios.map(u => u.id === usuarioEnEdicion.id ? {
+            ...u,
+            username: userUsername.trim().toLowerCase(),
+            password: userPassword,
+            nombre: userNombre.toUpperCase().trim(),
+            email: userEmail.toLowerCase().trim(),
+            celular: userCelular.trim(),
+            rol: userRol,
+            tipoTrabajo: tipoFinal
+          } : u));
+          alert(`[${ahora}] Usuario ${userUsername} actualizado.`);
+        } else {
+          if (usuarios.some(u => u.username.toLowerCase() === userUsername.trim().toLowerCase())) {
+            return alert('El nombre de usuario ya existe.');
+          }
+
+          const nuevo = {
+            id: Date.now().toString(),
+            username: userUsername.trim().toLowerCase(),
+            password: userPassword,
+            nombre: userNombre.toUpperCase().trim(),
+            email: userEmail.toLowerCase().trim(),
+            celular: userCelular.trim(),
+            rol: userRol,
+            tipoTrabajo: tipoFinal
+          };
+          setUsuarios([...usuarios, nuevo]);
+          alert(`[${ahora}] Cuenta ${nuevo.nombre} creada con éxito.`);
+        }
+
+        abrirCreacionUsuarioAdmin();
+      };
+
+      const eliminarUsuarioAdmin = (id, nombre) => {
+        if (id === usuarioAutenticado.id) return alert('No puede eliminar su propia cuenta activa.');
+        if (confirm(`¿Eliminar al colaborador ${nombre}?`)) {
+          setUsuarios(usuarios.filter(u => u.id !== id));
+        }
+      };
+
+      const eliminarRequerimientoAdmin = (id, codigoOit) => {
+        if (confirm(`⚠️ ¿Desea eliminar definitivamente el requerimiento OIT/TK "${codigoOit}"?`)) {
+          setOrdenes(ordenes.filter(ord => ord.id !== id));
+          alert(`[${formatearFechaHora()}] Requerimiento ${codigoOit} eliminado.`);
+        }
+      };
+
+      // --- ALTA TÉCNICO SUPERVISOR ---
+      const registrarTecnicoPorSupervisor = (e) => {
+        e.preventDefault();
+        if (!tecNombre.trim() || !tecEmail.trim() || !tecCelular.trim()) return alert('Complete los datos');
+        const ahora = formatearFechaHora();
+        const baseUsername = tecEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const nuevoTecnico = {
+          id: Date.now().toString(),
+          username: baseUsername,
+          password: 'tecnico123',
+          nombre: tecNombre.toUpperCase().trim(),
+          email: tecEmail.toLowerCase().trim(),
+          celular: tecCelular.trim(),
+          rol: 'TECNICO_EJECUTANTE',
+          tipoTrabajo: 'N/A'
+        };
+
+        setUsuarios([...usuarios, nuevoTecnico]);
+        setTecNombre('');
+        setTecEmail('');
+        setTecCelular('');
+        setMostrarModalCrearTecnicoSupervisor(false);
+        alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado con éxito.`);
+      };
+
+      // --- OPERACIONES OIT ---
+      const agregarItemBorrador = () => {
+        if (!itemDesc.trim()) return alert('Ingrese la descripción');
+        const nuevo = {
+          id: Date.now().toString(),
+          categoria: tabActiva,
+          descripcion: itemDesc,
+          serieActivo: itemSerie,
+          unidad: itemUnidad,
+          cantidadSolicitada: Number(itemCant),
+          destino: itemDestino,
+          cantidadInstalada: 0,
+          cantidadDevuelta: 0,
+          estadoRetorno: 'OPERATIVO'
+        };
+        setItemsBorrador([...itemsBorrador, nuevo]);
+        setItemDesc('');
+        setItemSerie('');
+        setItemCant(1);
+      };
+
+      // 1. SOLICITUD POR SUPERVISOR (ENVÍO AUTOMÁTICO DE CORREO CON ASUNTO REQUERIDO)
+      const crearSolicitudOit = (e) => {
+        e.preventDefault();
+        if (!codigoOit.trim()) return alert('Ingrese el código OIT / TK');
+        if (itemsBorrador.length === 0) return alert('Añada al menos un ítem');
+
+        const ahora = formatearFechaHora();
+        const supervisorActual = usuarioAutenticado;
+        const tecnicoObj = usuarios.find(u => u.id === tecnicoAsignadoId) || tecnicos[0];
+        const logisticaObj = usuarios.find(u => u.rol === 'ADMIN_LOGISTICA') || { nombre: 'JERI OBREGON CRISTHINA XIOMARA', email: 'logistica@felosotec.com' };
+
+        const nuevaOrden = {
+          id: Date.now().toString(),
+          codigoOit: codigoOit.toUpperCase().trim(),
+          cliente: cliente.trim(),
+          tipoTrabajo: supervisorActual.tipoTrabajo || 'Instalaciones',
+          supervisorId: supervisorActual.id,
+          supervisorNombre: supervisorActual.nombre,
+          supervisorEmail: supervisorActual.email,
+          tecnicoId: tecnicoObj.id,
+          tecnicoNombre: tecnicoObj.nombre,
+          tecnicoEmail: tecnicoObj.email,
+          responsableDespacho: logisticaObj.nombre,
+          despachadoPorUsuario: null,
+          fechaSolicitud: ahora,
+          fechaEntrega: null,
+          fechaCierre: null,
+          estado: 'SOLICITADO',
+          historialMovimientos: [
+            { 
+              fechaHora: ahora, 
+              usuario: supervisorActual.nombre, 
+              accion: `Registro de Requerimiento OIT y envío de correo a ${logisticaObj.email} con CC a ${tecnicoObj.email}` 
+            }
+          ],
+          items: itemsBorrador
+        };
+
+        setOrdenes([nuevaOrden, ...ordenes]);
+        setItemsBorrador([]);
+        setCodigoOit('');
+
+        // Notificación automática por correo
+        const asuntoCorreo = `Solicitud de Equipos y/o Materiales (${nuevaOrden.codigoOit} y ${nuevaOrden.cliente})`;
+        const cuerpoCorreo = `Estimada Área de Logística,\n\nSe ha generado un nuevo requerimiento de despacho:\n- OIT / TK: ${nuevaOrden.codigoOit}\n- Cliente: ${nuevaOrden.cliente}\n- Tipo de Trabajo: ${nuevaOrden.tipoTrabajo}\n- Supervisor Solicitante: ${nuevaOrden.supervisorNombre} (${nuevaOrden.supervisorEmail})\n- Técnico Asignado: ${nuevaOrden.tecnicoNombre} (${nuevaOrden.tecnicoEmail})\n\nÍTEMS SOLICITADOS:\n${nuevaOrden.items.map(i => `• [${i.categoria}] ${i.descripcion} | Cant: ${i.cantidadSolicitada} ${i.unidad} | Destino: ${i.destino}`).join('\n')}\n\nFavor de proceder con la validación y despacho correspondiente.`;
+
+        dispararNotificacionCorreo({
+          remitente: supervisorActual.email,
+          para: 'logistica@felosotec.com',
+          cc: tecnicoObj.email,
+          asunto: asuntoCorreo,
+          mensaje: cuerpoCorreo
+        });
+
+        alert(`[${ahora}] Solicitud ${nuevaOrden.codigoOit} enviada a Logística.\nCorreo automático enviado desde: ${supervisorActual.email}\nPara: logistica@felosotec.com\nCC: ${tecnicoObj.email}`);
+      };
+
+      // 2. EDICIÓN COMPLETA (ADMIN/LOGÍSTICA PUEDE MODIFICAR CLIENTE, PERSONAL E ÍTEMS ACTUALES)
+      const abrirModalEdicionOit = (ord) => {
+        setOitEnEdicion(JSON.parse(JSON.stringify(ord)));
+      };
+
+      const agregarItemEnEdicionOit = () => {
+        if (!editItemDesc.trim()) return alert('Ingrese descripción del ítem');
+        const nuevo = {
+          id: Date.now().toString(),
+          categoria: editItemCat,
+          descripcion: editItemDesc,
+          serieActivo: editItemSerie,
+          unidad: editItemUnidad,
+          cantidadSolicitada: Number(editItemCant),
+          destino: editItemDestino,
+          cantidadInstalada: 0,
+          cantidadDevuelta: 0,
+          estadoRetorno: 'OPERATIVO'
+        };
+        setOitEnEdicion({
+          ...oitEnEdicion,
+          items: [...oitEnEdicion.items, nuevo]
+        });
+        setEditItemDesc('');
+        setEditItemSerie('');
+        setEditItemCant(1);
+      };
+
+      const eliminarItemEnEdicionOit = (id) => {
+        setOitEnEdicion({
+          ...oitEnEdicion,
+          items: oitEnEdicion.items.filter(i => i.id !== id)
+        });
+      };
+
+      const actualizarCampoItemEnEdicion = (id, campo, valor) => {
+        setOitEnEdicion({
+          ...oitEnEdicion,
+          items: oitEnEdicion.items.map(i => i.id === id ? { ...i, [campo]: valor } : i)
+        });
+      };
+
+      const guardarCambiosOit = () => {
+        const ahora = formatearFechaHora();
+        const editorNombre = usuarioAutenticado.nombre;
+        const tecnicoObj = usuarios.find(u => u.id === oitEnEdicion.tecnicoId);
+
+        const oitActualizada = {
+          ...oitEnEdicion,
+          tecnicoNombre: tecnicoObj ? tecnicoObj.nombre : oitEnEdicion.tecnicoNombre,
+          tecnicoEmail: tecnicoObj ? tecnicoObj.email : oitEnEdicion.tecnicoEmail,
+          historialMovimientos: [
+            ...oitEnEdicion.historialMovimientos,
+            { fechaHora: ahora, usuario: editorNombre, accion: 'Modificación de Cabecera e Ítems Actuales en la OIT' }
+          ]
+        };
+
+        setOrdenes(ordenes.map(o => o.id === oitActualizada.id ? oitActualizada : o));
+        setOitEnEdicion(null);
+        alert(`[${ahora}] Requerimiento ${oitActualizada.codigoOit} actualizado con sus ítems.`);
+      };
+
+      // 3. CAMBIO DE ESTADO POR SUPERVISOR (PENDIENTE / CANCELADO Y RETORNO A LOGÍSTICA)
+      const cambiarEstadoSupervisor = (id, nuevoEstado) => {
+        const ahora = formatearFechaHora();
+        const supNombre = usuarioAutenticado.nombre;
+        const ord = ordenes.find(o => o.id === id);
+
+        const ordenActualizada = {
+          ...ord,
+          estado: nuevoEstado,
+          historialMovimientos: [
+            ...ord.historialMovimientos,
+            { fechaHora: ahora, usuario: supNombre, accion: `El Supervisor marcó la solicitud como ${nuevoEstado} y se devolvió la orden a Admin Logística.` }
+          ]
+        };
+
+        setOrdenes(ordenes.map(o => o.id === id ? ordenActualizada : o));
+        alert(`[${ahora}] Solicitud ${ord.codigoOit} marcada como ${nuevoEstado} y retornada a Logística.`);
+      };
+
+      // 4. DESPACHO POR ADMIN LOGÍSTICA (REGISTRO DE USUARIO DESPACHADOR + RESPUESTA AUTOMÁTICA DE CORREO)
+      const despacharOrden = (id) => {
+        const ahora = formatearFechaHora();
+        const despachadorNombre = usuarioAutenticado.nombre;
+        const despachadorEmail = usuarioAutenticado.email || 'logistica@felosotec.com';
+
+        const ordenActual = ordenes.find(o => o.id === id);
+        const ordenActualizada = {
+          ...ordenActual,
+          estado: 'DESPACHADO',
+          fechaEntrega: ahora,
+          responsableDespacho: despachadorNombre,
+          despachadoPorUsuario: despachadorNombre,
+          historialMovimientos: [
+            ...ordenActual.historialMovimientos,
+            { fechaHora: ahora, usuario: despachadorNombre, accion: `Despacho Físico procesado por ${despachadorNombre}. Se respondió correo a ${ordenActual.supervisorEmail} y ${ordenActual.tecnicoEmail}` }
+          ]
+        };
+
+        setOrdenes(ordenes.map(o => o.id === id ? ordenActualizada : o));
+
+        // Respuesta automática al correo
+        dispararNotificacionCorreo({
+          remitente: despachadorEmail,
+          para: ordenActual.supervisorEmail,
+          cc: `${ordenActual.tecnicoEmail}, logistica@felosotec.com`,
+          asunto: `Re: Solicitud de Equipos y/o Materiales (${ordenActual.codigoOit} y ${ordenActual.cliente}) - DESPACHO REALIZADO`,
+          mensaje: `Estimado(a) ${ordenActual.supervisorNombre} y Técnico ${ordenActual.tecnicoNombre},\n\nSe informa que se REALIZÓ EL DESPACHO DE LOS EQUIPOS Y/O MATERIALES solicitados bajo la OIT/TK ${ordenActual.codigoOit}.\n\n- Despachado por: ${despachadorNombre}\n- Fecha y Hora de Despacho: ${ahora}\n- Cliente: ${ordenActual.cliente}\n\nÍTEMS ENTREGADOS:\n${ordenActual.items.map(i => `• [${i.categoria}] ${i.descripcion} | Cant: ${i.cantidadSolicitada} ${i.unidad} | Destino: ${i.destino}${i.serieActivo ? ` (S/N: ${i.serieActivo})` : ''}`).join('\n')}\n\nPor favor proceder con la recepción física y la posterior liquidación tras la culminación de los trabajos.`
+        });
+
+        alert(`[${ahora}] ¡ORDEN ${ordenActualizada.codigoOit} DESPACHADA!\nDespachado por: ${despachadorNombre}\nRespuesta automática remitida por correo con copia a los involucrados.`);
+      };
+
+      // 5. LIQUIDACIÓN POR TÉCNICO (RESPUESTA AUTOMÁTICA DE CORREO INDICANDO MATERIALES Y EQUIPOS USADOS)
+      const abrirModalLiquidacion = (orden) => {
+        const clon = JSON.parse(JSON.stringify(orden));
+        clon.items.forEach(it => {
+          if (it.cantidadInstalada === undefined || it.cantidadInstalada === null) {
+            if (it.categoria === 'MATERIAL') {
+              it.cantidadInstalada = it.cantidadSolicitada;
+              it.cantidadDevuelta = 0;
+            } else {
+              it.cantidadInstalada = it.destino === 'CLIENTE' ? 1 : 0;
+              it.cantidadDevuelta = it.destino === 'NODO' ? 1 : 0;
+            }
+          }
+        });
+        setOitParaLiquidar(clon);
+      };
+
+      const guardarLiquidacionTecnico = () => {
+        const ahora = formatearFechaHora();
+        const tecnicoNombre = usuarioAutenticado.nombre;
+        const tecnicoEmail = usuarioAutenticado.email;
+
+        const ordenActualizada = {
+          ...oitParaLiquidar,
+          estado: 'TRABAJO_FINALIZADO',
+          historialMovimientos: [
+            ...oitParaLiquidar.historialMovimientos,
+            { fechaHora: ahora, usuario: tecnicoNombre, accion: `Trabajo finalizado y liquidación declarada. Correo automático de respuesta enviado a Logística y Supervisor.` }
+          ]
+        };
+
+        setOrdenes(ordenes.map(o => o.id === oitParaLiquidar.id ? ordenActualizada : o));
+        setOitParaLiquidar(null);
+
+        // Respuesta automática al correo
+        dispararNotificacionCorreo({
+          remitente: tecnicoEmail,
+          para: 'logistica@felosotec.com',
+          cc: `${ordenActualizada.supervisorEmail}, ${tecnicoEmail}`,
+          asunto: `Re: Solicitud de Equipos y/o Materiales (${ordenActualizada.codigoOit} y ${ordenActualizada.cliente}) - TRABAJO REALIZADO Y LIQUIDACIÓN`,
+          mensaje: `Estimada Área de Logística y Supervisor ${ordenActualizada.supervisorNombre},\n\nSe informa que se REALIZÓ EL TRABAJO en campo y se responde con los materiales y equipos usados para su respectivo control:\n\n- OIT / TK: ${ordenActualizada.codigoOit}\n- Cliente: ${ordenActualizada.cliente}\n- Técnico Ejecutante: ${tecnicoNombre}\n- Fecha de Cierre de Trabajo: ${ahora}\n\nDETALLE DE LIQUIDACIÓN:\n${ordenActualizada.items.map(i => `• [${i.categoria}] ${i.descripcion} -> Solicitado: ${i.cantidadSolicitada} ${i.unidad} | INSTALADO EN CLIENTE: ${i.cantidadInstalada || 0} | SOBRANTE/DEVUELTO: ${i.cantidadDevuelta || 0} | Estado Retorno: ${i.estadoRetorno || 'N/A'}`).join('\n')}\n\nSe solicita la conciliación final en almacén.`
+        });
+
+        alert(`[${ahora}] Liquidación de la OIT ${ordenActualizada.codigoOit} enviada a Logística.\nCorreo de respuesta generado y notificado.`);
+      };
+
+      // 6. CONCILIACIÓN Y CIERRE POR ADMIN LOGÍSTICA (RESPUESTA DE CORREO DE FINALIZACIÓN Y COTEJO)
+      const conciliarYCerrar = (id) => {
+        const ahora = formatearFechaHora();
+        const responsableNombre = usuarioAutenticado.nombre;
+        const responsableEmail = usuarioAutenticado.email || 'logistica@felosotec.com';
+
+        const ordenActual = ordenes.find(o => o.id === id);
+        const ordenActualizada = {
+          ...ordenActual,
+          estado: 'CERRADO_CONCILIADO',
+          fechaCierre: ahora,
+          historialMovimientos: [
+            ...ordenActual.historialMovimientos,
+            { fechaHora: ahora, usuario: responsableNombre, accion: `Conciliación y cotejo de materiales/equipos finalizado por Logística. Correo de cierre emitido.` }
+          ]
+        };
+
+        setOrdenes(ordenes.map(o => o.id === id ? ordenActualizada : o));
+
+        // Respuesta automática al correo
+        dispararNotificacionCorreo({
+          remitente: responsableEmail,
+          para: ordenActual.supervisorEmail,
+          cc: `${ordenActual.tecnicoEmail}, logistica@felosotec.com`,
+          asunto: `Re: Solicitud de Equipos y/o Materiales (${ordenActual.codigoOit} y ${ordenActual.cliente}) - FINALIZACIÓN Y CONCILIACIÓN CONFORME`,
+          mensaje: `Estimados,\n\nSe informa la FINALIZACIÓN DEL TRABAJO correspondiente a la OIT/TK ${ordenActual.codigoOit} (${ordenActual.cliente}).\n\nTodos los materiales y equipos fueron COTEJADOS satisfactoriamente en almacén y se finalizó la devolución y conciliación formal bajo el formato LOG_RE_03 v03.\n\n- Responsable de Conciliación: ${responsableNombre}\n- Fecha de Cierre: ${ahora}\n\nLa orden queda archivada y cerrada en el sistema.`
+        });
+
+        alert(`[${ahora}] OIT ${ordenActualizada.codigoOit} Conciliada y Cerrada.\nCorreo de finalización y cotejo enviado a todos los involucrados.`);
+      };
+
+      // Exportar Excel
+      const exportarExcel = () => {
+        const rows = [];
+        let lista = ordenes;
+        if (usuarioAutenticado.rol === 'SUPERVISOR_SOLICITANTE') {
+          lista = ordenes.filter(o => o.tipoTrabajo === usuarioAutenticado.tipoTrabajo);
+        } else if (usuarioAutenticado.rol === 'TECNICO_EJECUTANTE') {
+          lista = ordenes.filter(o => o.tecnicoId === usuarioAutenticado.id);
+        }
+
+        lista.forEach(o => {
+          o.items.forEach(i => {
+            rows.push({
+              "CÓDIGO OIT": o.codigoOit,
+              "CLIENTE": o.cliente,
+              "TIPO TRABAJO": o.tipoTrabajo,
+              "SUPERVISOR SOLICITANTE": o.supervisorNombre,
+              "CORREO SUPERVISOR": o.supervisorEmail,
+              "TÉCNICO EJECUTANTE": o.tecnicoNombre,
+              "CORREO TÉCNICO": o.tecnicoEmail,
+              "RESPONSABLE DESPACHO": o.responsableDespacho,
+              "DESPACHADO POR (USUARIO)": o.despachadoPorUsuario || "PENDIENTE",
+              "ESTADO": o.estado,
+              "FECHA/HORA SOLICITUD": o.fechaSolicitud,
+              "FECHA/HORA ENTREGA": o.fechaEntrega || "---",
+              "FECHA/HORA CIERRE": o.fechaCierre || "---",
+              "CATEGORÍA": i.categoria,
+              "DESCRIPCIÓN": i.descripcion,
+              "N° SERIE / ACTIVO": i.serieActivo || "N/A",
+              "UNIDAD": i.unidad,
+              "DESTINO": i.destino,
+              "CANT. SOLICITADA": i.cantidadSolicitada,
+              "CANT. INSTALADA": i.cantidadInstalada || 0,
+              "CANT. SOBRANTE/DEVUELTA": i.cantidadDevuelta || 0,
+              "ESTADO RETORNO": i.estadoRetorno || "N/A"
+            });
+          });
+        });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Trazabilidad_LOG_RE_03");
+        XLSX.writeFile(wb, `FELOSOTEC_Logistica_${usuarioAutenticado.rol}_${new Date().toISOString().slice(0,10)}.xlsx`);
+      };
+
+      // Exportar PDF
+      const exportarPdfActa = (o) => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 25, 'F');
+        doc.setFontSize(13);
+        doc.setTextColor(245, 158, 11);
+        doc.setFont("helvetica", "bold");
+        doc.text("FELOSOTEC E.I.R.L. | CONTROL DE DESPACHO Y CIERRE", 14, 12);
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text("FORMATO LOG_RE_03 (v03) - TRAZABILIDAD POR OIT / TICKET", 14, 18);
+
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(9);
+        doc.text(`CÓDIGO OIT / TK: ${o.codigoOit}`, 14, 32);
+        doc.text(`CLIENTE: ${o.cliente}`, 14, 37);
+        doc.text(`TIPO DE TRABAJO: ${o.tipoTrabajo}`, 14, 42);
+        doc.text(`SUPERVISOR SOLICITANTE: ${o.supervisorNombre}`, 14, 47);
+        doc.text(`TÉCNICO EJECUTANTE: ${o.tecnicoNombre}`, 14, 52);
+        doc.text(`DESPACHADO POR: ${o.despachadoPorUsuario || o.responsableDespacho || 'PENDIENTE'}`, 14, 57);
+
+        doc.text(`ESTADO: ${o.estado}`, 130, 32);
+        doc.text(`F. SOLICITUD: ${o.fechaSolicitud}`, 130, 37);
+        doc.text(`F. ENTREGA: ${o.fechaEntrega || 'PENDIENTE'}`, 130, 42);
+        doc.text(`F. CIERRE: ${o.fechaCierre || 'PENDIENTE'}`, 130, 47);
+
+        const tableBody = o.items.map(it => [
+          it.categoria,
+          it.descripcion + (it.serieActivo ? ` (S/N: ${it.serieActivo})` : ''),
+          it.destino,
+          it.cantidadSolicitada + ' ' + it.unidad,
+          (it.cantidadInstalada || 0) + ' ' + it.unidad,
+          (it.cantidadDevuelta || 0) + ' ' + it.unidad,
+          it.estadoRetorno || 'N/A'
+        ]);
+
+        doc.autoTable({
+          startY: 62,
+          head: [['Categoría', 'Descripción / Serie', 'Destino', 'Solicitado', 'Instalado', 'Devuelto / Sobrante', 'Est. Retorno']],
+          body: tableBody,
+          theme: 'striped',
+          headStyles: { fillStyle: 'solid', fillColor: [30, 41, 59], textColor: [245, 158, 11] },
+          styles: { fontSize: 8 }
+        });
+
+        let finalY = doc.lastAutoTable.finalY + 10;
+
+        doc.setFontSize(8);
+        doc.setTextColor(15, 23, 42);
+        doc.text("HISTORIAL DE MOVIMIENTOS Y NOTIFICACIONES:", 14, finalY);
+        finalY += 4;
+        
+        const historyBody = o.historialMovimientos.map(h => [h.fechaHora, h.usuario, h.accion]);
+        doc.autoTable({
+          startY: finalY,
+          head: [['Fecha y Hora', 'Usuario Responsable', 'Acción y Notificación']],
+          body: historyBody,
+          theme: 'plain',
+          headStyles: { fillStyle: 'solid', fillColor: [226, 232, 240], textColor: [15, 23, 42] },
+          styles: { fontSize: 7 }
+        });
+
+        finalY = doc.lastAutoTable.finalY + 20;
+
+        doc.setDrawColor(100, 116, 139);
+        doc.line(15, finalY, 65, finalY);
+        doc.line(75, finalY, 125, finalY);
+        doc.line(135, finalY, 195, finalY);
+
+        doc.setFontSize(7);
+        doc.setTextColor(71, 85, 105);
+        doc.text("DESPACHADO POR (LOGÍSTICA)", 18, finalY + 4);
+        doc.text((o.despachadoPorUsuario || o.responsableDespacho).slice(0, 24), 16, finalY + 8);
+
+        doc.text("SOLICITADO POR (SUPERVISOR)", 78, finalY + 4);
+        doc.text(o.supervisorNombre.slice(0, 24), 76, finalY + 8);
+
+        doc.text("EJECUTADO Y LIQUIDADO (TÉCNICO)", 136, finalY + 4);
+        doc.text(o.tecnicoNombre.slice(0, 24), 136, finalY + 8);
+
+        doc.save(`Acta_LOG_RE_03_${o.codigoOit}.pdf`);
+      };
+
+      // ==========================================
+      // PANTALLA LOGIN
+      // ==========================================
+      if (!usuarioAutenticado) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950">
+            <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl space-y-6">
+              <div className="text-center space-y-2">
+                <span className="bg-amber-500 text-slate-950 font-extrabold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                  LOG_RE_03 v03
+                </span>
+                <h1 className="text-2xl font-bold text-white tracking-wide">FELOSOTEC E.I.R.L.</h1>
+                <p className="text-xs text-slate-400">Portal de Acceso y Control Logístico por OIT</p>
+              </div>
+
+              {errorLogin && (
+                <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-3 rounded-lg text-center">
+                  {errorLogin}
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Nombre de Usuario</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Ej. admin, logistica, elvis.artica, sofia.rey"
+                    value={loginUser}
+                    onChange={e => setLoginUser(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Contraseña</label>
+                  <input 
+                    type="password" 
+                    required
+                    placeholder="••••••••"
+                    value={loginPass}
+                    onChange={e => setLoginPass(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-lg text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/10"
+                >
+                  Iniciar Sesión
+                </button>
+              </form>
+
+              <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                <p className="font-semibold text-slate-300">Accesos Predeterminados:</p>
+                <p>• <b>Admin General:</b> <code className="text-amber-400">admin</code> / <code className="text-amber-400">admin123</code></p>
+                <p>• <b>Admin Logística:</b> <code className="text-amber-400">logistica</code> / <code className="text-amber-400">logistica123</code></p>
+                <p>• <b>Supervisor:</b> <code className="text-amber-400">elvis.artica</code> / <code className="text-amber-400">supervisor123</code></p>
+                <p>• <b>Técnico:</b> <code className="text-amber-400">sofia.rey</code> / <code className="text-amber-400">tecnico123</code></p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ==========================================
+      // DASHBOARD PRINCIPAL
+      // ==========================================
+      const rol = usuarioAutenticado.rol;
+
+      return (
+        <div className="min-h-screen pb-12">
+          {/* HEADER */}
+          <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 sticky top-0 z-30 flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-amber-500 text-slate-950 font-extrabold px-2 py-0.5 rounded text-xs">LOG_RE_03 v03</span>
+                <h1 className="text-lg font-bold text-white tracking-wide">FELOSOTEC E.I.R.L.</h1>
+                <span className="text-xs text-slate-400 font-mono hidden sm:inline">RUC: 20538875628</span>
+              </div>
+              <p className="text-xs text-slate-400">Gestión Integral de Despacho y Notificaciones Automáticas por OIT</p>
+            </div>
+
+            <div className="flex items-center gap-4 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 text-xs">
+              <div>
+                <p className="font-bold text-white">{usuarioAutenticado.nombre}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-mono font-semibold">
+                    {rol === 'ADMINISTRADOR' ? '👑 ADMINISTRADOR GENERAL' :
+                     rol === 'ADMIN_LOGISTICA' ? '📦 ADMIN LOGÍSTICA' :
+                     rol === 'SUPERVISOR_SOLICITANTE' ? `📋 SUPERVISOR (${usuarioAutenticado.tipoTrabajo})` :
+                     '🔧 TÉCNICO EJECUTANTE'}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-300 px-3 py-1.5 rounded-lg font-semibold transition text-xs"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </header>
+
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+
+            {/* ========================================================= */}
+            {/* VISTA: ADMIN GENERAL Y ADMIN LOGÍSTICA                    */}
+            {/* ========================================================= */}
+            {(rol === 'ADMINISTRADOR' || rol === 'ADMIN_LOGISTICA') && (
+              <div className="space-y-6">
+                
+                {/* TARJETAS DE ESTADO REQUERIMIENTO */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-xl shadow-lg">
+                    <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🟡 Solicitado</span>
+                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'SOLICITADO').length}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Por Despachar</p>
+                  </div>
+                  
+                  <div className="bg-slate-950 border border-sky-500/30 p-4 rounded-xl shadow-lg">
+                    <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">🔵 Despachado</span>
+                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'DESPACHADO').length}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">En Tránsito / Campo</p>
+                  </div>
+                  
+                  <div className="bg-slate-950 border border-purple-500/30 p-4 rounded-xl shadow-lg">
+                    <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🟣 Por Conciliar</span>
+                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'TRABAJO_FINALIZADO').length}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Trabajo Terminado</p>
+                  </div>
+
+                  <div className="bg-slate-950 border border-orange-500/30 p-4 rounded-xl shadow-lg">
+                    <span className="text-xs font-semibold text-orange-400 uppercase tracking-wider">🟠 Pendientes</span>
+                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'PENDIENTE').length}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">En Espera Supervisor</p>
+                  </div>
+                  
+                  <div className="bg-slate-950 border border-emerald-500/30 p-4 rounded-xl shadow-lg">
+                    <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">🟢 Conciliado</span>
+                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'CERRADO_CONCILIADO').length}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Finalizado y Cerrado</p>
+                  </div>
+                </div>
+
+                {/* Botonera */}
+                <div className="flex flex-wrap gap-3">
+                  {rol === 'ADMINISTRADOR' && (
+                    <button 
+                      onClick={() => { setMostrarModalUserAdmin(true); abrirCreacionUsuarioAdmin(); }}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                    >
+                      👑 Gestión de Usuarios y Claves ({usuarios.length})
+                    </button>
+                  )}
+                  <button 
+                    onClick={exportarExcel}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                  >
+                    📊 Descargar Sábana Excel LOG_RE_03
+                  </button>
+                </div>
+
+                {/* Bandeja Principal */}
+                <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+                  <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <div>
+                      <h2 className="text-sm font-bold text-white">Bandeja Global de Requerimientos OIT / TK</h2>
+                      <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación</p>
+                    </div>
+                    <span className="text-xs text-slate-400">Total: {ordenes.length} órdenes</span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900 text-slate-400 uppercase font-mono text-[11px]">
+                        <tr>
+                          <th className="p-3">OIT / TK</th>
+                          <th className="p-3">Cliente & Tipo Trabajo</th>
+                          <th className="p-3">Personal & Despacho</th>
+                          <th className="p-3">Ítems en esta OIT</th>
+                          <th className="p-3">Estado</th>
+                          <th className="p-3 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800 text-slate-300">
+                        {ordenes.map(ord => (
+                          <tr key={ord.id} className="hover:bg-slate-900/40">
+                            <td className="p-3 font-mono font-bold text-amber-400">
+                              {ord.codigoOit}
+                              <p className="text-[10px] text-slate-500 font-normal">{ord.fechaSolicitud}</p>
+                              <button 
+                                onClick={() => setOitParaAuditoria(ord)}
+                                className="text-[10px] text-sky-400 hover:underline mt-1 block"
+                              >
+                                🕒 Auditoría y Correos ({ord.historialMovimientos.length})
+                              </button>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-semibold text-white">{ord.cliente}</p>
+                              <span className="inline-block bg-slate-800 text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-medium mt-0.5">
+                                {ord.tipoTrabajo}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <p className="text-[11px] text-slate-300">Sup: <b>{ord.supervisorNombre}</b></p>
+                              <p className="text-[11px] text-sky-400">Téc: <b>{ord.tecnicoNombre}</b></p>
+                              
+                              {/* USUARIO QUIEN DESPACHÓ */}
+                              <div className="mt-1 pt-1 border-t border-slate-800/80">
+                                <p className="text-[10px] text-slate-400">
+                                  Despachó: {ord.despachadoPorUsuario ? (
+                                    <b className="text-emerald-400">{ord.despachadoPorUsuario}</b>
+                                  ) : (
+                                    <span className="text-amber-500 font-semibold italic">Pendiente de Despacho</span>
+                                  )}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <div className="space-y-1">
+                                {ord.items.map((i, idx) => (
+                                  <div key={idx} className="flex items-center gap-1.5 text-[11px]">
+                                    <span className="bg-slate-800 text-amber-300 px-1 py-0.2 rounded font-mono text-[9px]">{i.categoria[0]}</span>
+                                    <span>{i.descripcion}</span>
+                                    <span className="text-slate-400 font-bold">x{i.cantidadSolicitada} {i.unidad}</span>
+                                    {ord.estado !== 'SOLICITADO' && (
+                                      <span className="text-emerald-400 font-mono text-[10px]">(Inst: {i.cantidadInstalada || 0} | Dev: {i.cantidadDevuelta || 0})</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-1 rounded text-[10px] font-bold ${ESTADO_COLORES[ord.estado]}`}>
+                                {ord.estado}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right space-x-1.5">
+                              {/* OPCIÓN EDITAR REQUERIMIENTO E ÍTEMS */}
+                              <button 
+                                onClick={() => abrirModalEdicionOit(ord)}
+                                className="bg-slate-800 hover:bg-slate-700 text-amber-400 px-2 py-1.5 rounded text-[11px] border border-amber-500/30 transition font-semibold"
+                              >
+                                ✏️ Editar
+                              </button>
+
+                              {(ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE') && (
+                                <button 
+                                  onClick={() => despacharOrden(ord.id)}
+                                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded text-[11px] transition shadow-md shadow-amber-500/10"
+                                >
+                                  📦 Despachar
+                                </button>
+                              )}
+
+                              {ord.estado === 'TRABAJO_FINALIZADO' && (
+                                <button 
+                                  onClick={() => conciliarYCerrar(ord.id)}
+                                  className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px] transition"
+                                >
+                                  📑 Conciliar
+                                </button>
+                              )}
+
+                              <button 
+                                onClick={() => exportarPdfActa(ord)}
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1.5 rounded text-[11px] border border-slate-700"
+                              >
+                                📄 Acta
+                              </button>
+
+                              {rol === 'ADMINISTRADOR' && (
+                                <button 
+                                  onClick={() => eliminarRequerimientoAdmin(ord.id, ord.codigoOit)}
+                                  title="Eliminar requerimiento"
+                                  className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-400 border border-rose-500/30 px-2 py-1.5 rounded text-[11px] transition font-semibold"
+                                >
+                                  🗑️
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* VISTA: SUPERVISOR SOLICITANTE                             */}
+            {/* ========================================================= */}
+            {rol === 'SUPERVISOR_SOLICITANTE' && (
+              <div className="space-y-6">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-wrap justify-between items-center gap-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Panel de Trabajo del Supervisor</h2>
+                    <p className="text-xs text-amber-400 font-semibold">
+                      Tipo de Trabajo Habilitado: {usuarioAutenticado.tipoTrabajo} | Solicitante: {usuarioAutenticado.email}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setMostrarModalCrearTecnicoSupervisor(true)}
+                    className="bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    + Registrar Nuevo Técnico Ejecutante
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Formulario de Requerimiento */}
+                  <form onSubmit={crearSolicitudOit} className="lg:col-span-2 bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4">
+                    <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                      <div>
+                        <h3 className="text-base font-bold text-white">📝 Nuevo Requerimiento OIT / TK</h3>
+                        <p className="text-[11px] text-slate-400">Notificación automática por correo a <b>logistica@felosotec.com</b> con copia al técnico</p>
+                      </div>
+                      <span className="text-xs bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded border border-amber-500/20 font-bold">
+                        {usuarioAutenticado.tipoTrabajo}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="block text-slate-400 mb-1 font-semibold">Código OIT / TK *</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="Ej. S486299" 
+                          value={codigoOit} 
+                          onChange={e => setCodigoOit(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono uppercase focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1 font-semibold">Cliente Final</label>
+                        <input 
+                          type="text" 
+                          required 
+                          value={cliente} 
+                          onChange={e => setCliente(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1 font-semibold">Tipo de Trabajo</label>
+                        <input 
+                          type="text" 
+                          disabled
+                          value={usuarioAutenticado.tipoTrabajo}
+                          className="w-full bg-slate-900/50 border border-slate-800 rounded p-2 text-amber-400 font-bold cursor-not-allowed"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1 font-semibold">Técnico Ejecutante Asignado *</label>
+                        <select 
+                          value={tecnicoAsignadoId} 
+                          onChange={e => setTecnicoAsignadoId(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-amber-500 focus:outline-none"
+                        >
+                          {tecnicos.map(t => (
+                            <option key={t.id} value={t.id}>{t.nombre} ({t.email})</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Clasificación LOG_RE_03 */}
+                    <div className="border-t border-slate-800 pt-4">
+                      <div className="flex gap-2 mb-3">
+                        {(['MATERIAL', 'HERRAMIENTA', 'EQUIPO']).map(cat => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setTabActiva(cat)}
+                            className={`flex-1 py-1.5 rounded text-xs font-bold border transition ${tabActiva === cat ? 'bg-slate-800 border-amber-500 text-amber-400' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                          >
+                            {cat === 'MATERIAL' ? '1. Materiales' : cat === 'HERRAMIENTA' ? '2. Herramientas' : '3. Equipos'}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="bg-slate-900/70 p-3 rounded-lg border border-slate-800 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                          <div className="sm:col-span-2">
+                            <label className="block text-slate-400 mb-1">Descripción del Ítem</label>
+                            <input 
+                              type="text" 
+                              placeholder={tabActiva === 'EQUIPO' ? 'Router H3C MSR1008' : tabActiva === 'HERRAMIENTA' ? 'Ponchadora RJ45 AMP' : 'Cintillos Blancos 200mm'}
+                              value={itemDesc} 
+                              onChange={e => setItemDesc(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
+                            />
+                          </div>
+                          {tabActiva !== 'MATERIAL' && (
+                            <div>
+                              <label className="block text-slate-400 mb-1">N° Serie / Activo</label>
+                              <input 
+                                type="text" 
+                                placeholder="Ej. H3C-99281"
+                                value={itemSerie} 
+                                onChange={e => setItemSerie(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <label className="block text-slate-400 mb-1">Cantidad Solicitada</label>
+                            <input 
+                              type="number" 
+                              min="1" 
+                              value={itemCant} 
+                              onChange={e => setItemCant(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-400 mb-1">Destino</label>
+                            <select 
+                              value={itemDestino} 
+                              onChange={e => setItemDestino(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
+                            >
+                              <option value="CLIENTE">[X] CLIENTE</option>
+                              <option value="NODO">[X] NODO</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <button 
+                          type="button" 
+                          onClick={agregarItemBorrador}
+                          className="w-full bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold py-1.5 rounded text-xs border border-amber-500/20"
+                        >
+                          + Añadir Ítem a la OIT
+                        </button>
+                      </div>
+                    </div>
+
+                    {itemsBorrador.length > 0 && (
+                      <div className="space-y-1.5 border-t border-slate-800 pt-3">
+                        <p className="text-xs font-bold text-slate-300">Ítems configurados ({itemsBorrador.length}):</p>
+                        {itemsBorrador.map(it => (
+                          <div key={it.id} className="flex justify-between items-center bg-slate-900 p-2 rounded text-xs border border-slate-800">
+                            <span>[{it.categoria[0]}] <b>{it.descripcion}</b> x{it.cantidadSolicitada} {it.unidad} ({it.destino})</span>
+                            <button type="button" onClick={() => setItemsBorrador(itemsBorrador.filter(x => x.id !== it.id))} className="text-rose-400 hover:underline">Eliminar</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <button 
+                      type="submit" 
+                      className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-lg text-xs uppercase tracking-wider transition"
+                    >
+                      🚀 Enviar Pedido a Logística con Disparo de Correo
+                    </button>
+                  </form>
+
+                  {/* Panel OITs del Supervisor con Gestión de Estado PENDIENTE / CANCELADO */}
+                  <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-sm font-bold text-white">Mis OITs ({usuarioAutenticado.tipoTrabajo})</h3>
+                      <button onClick={exportarExcel} className="text-emerald-400 text-xs hover:underline">Excel</button>
+                    </div>
+
+                    <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+                      {ordenes.filter(o => o.tipoTrabajo === usuarioAutenticado.tipoTrabajo).map(o => (
+                        <div key={o.id} className="bg-slate-900 border border-slate-800 p-3.5 rounded-lg space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-mono font-bold text-amber-400 text-sm">{o.codigoOit}</span>
+                              <p className="text-xs text-white font-medium">{o.cliente}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
+                          </div>
+
+                          <div className="text-[11px] text-slate-400 space-y-0.5">
+                            <p>Técnico: <b className="text-sky-400">{o.tecnicoNombre}</b></p>
+                            <p>Despachado por: <b className="text-white">{o.despachadoPorUsuario || 'Pendiente'}</b></p>
+                            <p className="text-[10px] text-slate-500">Fecha: {o.fechaSolicitud}</p>
+                          </div>
+
+                          {/* BOTONES DE CONTROL DE ESTADO POR SUPERVISOR */}
+                          <div className="pt-2 border-t border-slate-800/80 flex flex-wrap gap-1.5">
+                            <button
+                              onClick={() => abrirModalEdicionOit(o)}
+                              className="bg-slate-800 hover:bg-slate-700 text-amber-400 px-2 py-1 rounded text-[10px] border border-amber-500/20 font-semibold"
+                            >
+                              ✏️ Editar Ítems
+                            </button>
+
+                            {o.estado !== 'CERRADO_CONCILIADO' && o.estado !== 'CANCELADO' && (
+                              <>
+                                <button
+                                  onClick={() => cambiarEstadoSupervisor(o.id, 'PENDIENTE')}
+                                  className="bg-orange-500/10 hover:bg-orange-500 hover:text-slate-950 text-orange-400 border border-orange-500/30 px-2 py-1 rounded text-[10px] font-semibold transition"
+                                >
+                                  ⏸️ Pendiente
+                                </button>
+                                <button
+                                  onClick={() => cambiarEstadoSupervisor(o.id, 'CANCELADO')}
+                                  className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[10px] font-semibold transition"
+                                >
+                                  ❌ Cancelar
+                                </button>
+                              </>
+                            )}
+
+                            <button
+                              onClick={() => setOitParaAuditoria(o)}
+                              className="text-sky-400 hover:underline text-[10px] ml-auto self-center"
+                            >
+                              Ver Historial
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* VISTA: TÉCNICO EJECUTANTE                                 */}
+            {/* ========================================================= */}
+            {rol === 'TECNICO_EJECUTANTE' && (
+              <div className="space-y-6">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Bandeja de Asignaciones Técnicas</h2>
+                    <p className="text-xs text-slate-400">Requerimientos vinculados a: <b className="text-white">{usuarioAutenticado.nombre}</b> ({usuarioAutenticado.email})</p>
+                  </div>
+                  <button onClick={exportarExcel} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                    📊 Exportar Mis OITs
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {ordenes.filter(o => o.tecnicoId === usuarioAutenticado.id).map(o => (
+                    <div key={o.id} className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-amber-400 font-mono font-bold text-base">{o.codigoOit}</span>
+                          <p className="text-xs font-semibold text-white">{o.cliente}</p>
+                          <span className="text-[10px] text-amber-300 font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                            {o.tipoTrabajo}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${ESTADO_COLORES[o.estado]}`}>
+                          {o.estado}
+                        </span>
+                      </div>
+
+                      <div className="border-t border-slate-800 pt-2 space-y-1">
+                        <p className="text-[11px] text-slate-400">Supervisor: <b className="text-white">{o.supervisorNombre}</b></p>
+                        <p className="text-[11px] text-slate-400">Despachado por: <b className="text-emerald-400">{o.despachadoPorUsuario || 'Pendiente'}</b></p>
+                        <p className="text-[11px] font-semibold text-slate-400 mt-2">Materiales y Equipos:</p>
+                        {o.items.map((it, idx) => (
+                          <p key={idx} className="text-[11px] text-slate-300">
+                            • [{it.categoria[0]}] {it.descripcion} (Cant: {it.cantidadSolicitada} {it.unidad})
+                          </p>
+                        ))}
+                      </div>
+
+                      {o.estado === 'DESPACHADO' && (
+                        <button 
+                          onClick={() => abrirModalLiquidacion(o)}
+                          className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded text-xs transition shadow-lg shadow-purple-500/10"
+                        >
+                          🏁 Declarar Trabajo y Responder Correo
+                        </button>
+                      )}
+
+                      {o.estado === 'TRABAJO_FINALIZADO' && (
+                        <p className="text-xs text-purple-400 font-semibold text-center bg-purple-500/10 py-2 rounded border border-purple-500/20">
+                          ⏳ Esperando Conciliación de Almacén
+                        </p>
+                      )}
+
+                      {o.estado === 'CERRADO_CONCILIADO' && (
+                        <button 
+                          onClick={() => exportarPdfActa(o)}
+                          className="w-full bg-slate-900 hover:bg-slate-800 text-slate-300 py-1.5 rounded text-xs border border-slate-700"
+                        >
+                          📄 Descargar Acta Finalizada
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {ordenes.filter(o => o.tecnicoId === usuarioAutenticado.id).length === 0 && (
+                    <div className="col-span-full py-12 text-center bg-slate-950 border border-slate-800 rounded-xl">
+                      <p className="text-slate-400 text-sm">No tienes requerimientos asignados actualmente.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* MODAL: EDITAR REQUERIMIENTO E ÍTEMS ACTUALES (ADMIN/SUP)  */}
+            {/* ========================================================= */}
+            {oitEnEdicion && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">✏️ Editar Requerimiento OIT: {oitEnEdicion.codigoOit}</h3>
+                      <p className="text-xs text-slate-400">Modifique los datos generales y edite los <b>Ítems Actuales en esta OIT</b></p>
+                    </div>
+                    <button onClick={() => setOitEnEdicion(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="block text-slate-400 mb-1">Cliente</label>
+                      <input 
+                        type="text" 
+                        value={oitEnEdicion.cliente}
+                        onChange={e => setOitEnEdicion({ ...oitEnEdicion, cliente: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">Tipo de Trabajo</label>
+                      <select 
+                        value={oitEnEdicion.tipoTrabajo}
+                        onChange={e => setOitEnEdicion({ ...oitEnEdicion, tipoTrabajo: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                      >
+                        {TIPOS_TRABAJO.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1">Técnico Ejecutante</label>
+                      <select 
+                        value={oitEnEdicion.tecnicoId}
+                        onChange={e => setOitEnEdicion({ ...oitEnEdicion, tecnicoId: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                      >
+                        {tecnicos.map(t => (
+                          <option key={t.id} value={t.id}>{t.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* FORMULARIO PARA AÑADIR NUEVO ÍTEM A ESTA OIT */}
+                  <div className="bg-slate-900/80 p-3.5 rounded-lg border border-slate-800 space-y-2">
+                    <p className="text-xs font-bold text-amber-400">+ Añadir Nuevo Ítem al Requerimiento</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Categoría</label>
+                        <select 
+                          value={editItemCat} 
+                          onChange={e => setEditItemCat(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        >
+                          <option value="MATERIAL">Material</option>
+                          <option value="HERRAMIENTA">Herramienta</option>
+                          <option value="EQUIPO">Equipo</option>
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-400 mb-0.5">Descripción</label>
+                        <input 
+                          type="text" 
+                          placeholder="Descripción del ítem"
+                          value={editItemDesc} 
+                          onChange={e => setEditItemDesc(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Cant.</label>
+                        <input 
+                          type="number" 
+                          min="1"
+                          value={editItemCant} 
+                          onChange={e => setEditItemCant(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Destino</label>
+                        <select 
+                          value={editItemDestino} 
+                          onChange={e => setEditItemDestino(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        >
+                          <option value="CLIENTE">CLIENTE</option>
+                          <option value="NODO">NODO</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={agregarItemEnEdicionOit}
+                      className="w-full bg-slate-800 hover:bg-slate-700 text-amber-400 py-1.5 rounded text-xs font-semibold"
+                    >
+                      Añadir Ítem
+                    </button>
+                  </div>
+
+                  {/* LISTA Y EDICIÓN EN LÍNEA DE ÍTEMS ACTUALES EN ESTA OIT */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-300">Ítems Actuales en esta OIT ({oitEnEdicion.items.length}):</p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {oitEnEdicion.items.map((it) => (
+                        <div key={it.id} className="bg-slate-900 p-2.5 rounded border border-slate-800 text-xs space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-mono text-amber-300 font-bold bg-slate-950 px-1.5 py-0.5 rounded">[{it.categoria}]</span>
+                            <button 
+                              type="button" 
+                              onClick={() => eliminarItemEnEdicionOit(it.id)}
+                              className="text-rose-400 hover:text-rose-300 font-semibold"
+                            >
+                              ✕ Quitar
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                            <div className="sm:col-span-2">
+                              <label className="text-[10px] text-slate-400 block">Descripción</label>
+                              <input 
+                                type="text" 
+                                value={it.descripcion}
+                                onChange={e => actualizarCampoItemEnEdicion(it.id, 'descripcion', e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 block">Cant. Solicitada</label>
+                              <input 
+                                type="number" 
+                                min="1"
+                                value={it.cantidadSolicitada}
+                                onChange={e => actualizarCampoItemEnEdicion(it.id, 'cantidadSolicitada', Number(e.target.value))}
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 block">Destino</label>
+                              <select 
+                                value={it.destino}
+                                onChange={e => actualizarCampoItemEnEdicion(it.id, 'destino', e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                              >
+                                <option value="CLIENTE">CLIENTE</option>
+                                <option value="NODO">NODO</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-3 border-t border-slate-800">
+                    <button 
+                      onClick={() => setOitEnEdicion(null)}
+                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded text-xs font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={guardarCambiosOit}
+                      className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded text-xs"
+                    >
+                      Guardar Cambios y Registrar Auditoría
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* MODAL: AUDITORÍA Y TRAZABILIDAD COMPLETA                  */}
+            {/* ========================================================= */}
+            {oitParaAuditoria && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">🕒 Historial y Notificaciones: OIT {oitParaAuditoria.codigoOit}</h3>
+                      <p className="text-xs text-slate-400">Registro de movimientos y correos de notificación automática</p>
+                    </div>
+                    <button onClick={() => setOitParaAuditoria(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {oitParaAuditoria.historialMovimientos.map((h, i) => (
+                      <div key={i} className="bg-slate-900 border-l-2 border-amber-500 p-3 rounded-r text-xs space-y-1">
+                        <div className="flex justify-between text-slate-400">
+                          <span className="font-mono font-bold text-amber-400">{h.fechaHora}</span>
+                          <span className="text-[11px] text-slate-300 font-semibold">{h.usuario}</span>
+                        </div>
+                        <p className="text-white">{h.accion}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800 text-right">
+                    <button 
+                      onClick={() => setOitParaAuditoria(null)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded text-xs font-semibold"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* MODAL: LIQUIDACIÓN TÉCNICA (CAMPO)                      */}
+            {/* ========================================================= */}
+            {oitParaLiquidar && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">Liquidación de Campo - OIT {oitParaLiquidar.codigoOit}</h3>
+                      <p className="text-xs text-slate-400">Declare los materiales instalados vs. devueltos para responder el correo automáticamente</p>
+                    </div>
+                    <button onClick={() => setOitParaLiquidar(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {oitParaLiquidar.items.map((it, idx) => (
+                      <div key={it.id} className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="font-bold text-amber-400">[{it.categoria}] {it.descripcion}</span>
+                          <span className="text-slate-400">Despachado: {it.cantidadSolicitada} {it.unidad}</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-slate-400 mb-1">Cant. Instalada (Cliente)</label>
+                            <input 
+                              type="number" 
+                              value={it.cantidadInstalada || 0}
+                              onChange={e => {
+                                const val = Number(e.target.value);
+                                const newItems = [...oitParaLiquidar.items];
+                                newItems[idx].cantidadInstalada = val;
+                                setOitParaLiquidar({ ...oitParaLiquidar, items: newItems });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">Cant. Sobrante / Devuelta</label>
+                            <input 
+                              type="number" 
+                              value={it.cantidadDevuelta || 0}
+                              onChange={e => {
+                                const val = Number(e.target.value);
+                                const newItems = [...oitParaLiquidar.items];
+                                newItems[idx].cantidadDevuelta = val;
+                                setOitParaLiquidar({ ...oitParaLiquidar, items: newItems });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-slate-400 mb-1">Estado de Retorno</label>
+                            <select 
+                              value={it.estadoRetorno || 'OPERATIVO'}
+                              onChange={e => {
+                                const newItems = [...oitParaLiquidar.items];
+                                newItems[idx].estadoRetorno = e.target.value;
+                                setOitParaLiquidar({ ...oitParaLiquidar, items: newItems });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                            >
+                              <option value="OPERATIVO">OPERATIVO</option>
+                              <option value="DANADO">DAÑADO</option>
+                              <option value="EXTRAVIADO">EXTRAVIADO</option>
+                              <option value="N/A">N/A</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3 pt-3 border-t border-slate-800">
+                    <button 
+                      onClick={() => setOitParaLiquidar(null)}
+                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded text-xs font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={guardarLiquidacionTecnico}
+                      className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded text-xs font-bold"
+                    >
+                      Finalizar Trabajo y Responder Correo a Logística
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* MODAL: VISOR DE CORREO AUTOMÁTICO DISPARADO               */}
+            {/* ========================================================= */}
+            {notificacionEmailSimulada && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-slate-950 border border-amber-500/50 rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">📧</span>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Disparo de Correo Automático Realizado</h3>
+                        <p className="text-[11px] text-amber-400 font-mono">{notificacionEmailSimulada.timestamp}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setNotificacionEmailSimulada(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 text-xs space-y-2 font-mono">
+                    <p><span className="text-slate-400">De (Remitente):</span> <b className="text-white">{notificacionEmailSimulada.remitente}</b></p>
+                    <p><span className="text-slate-400">Para:</span> <b className="text-amber-400">{notificacionEmailSimulada.para}</b></p>
+                    <p><span className="text-slate-400">Con Copia (CC):</span> <b className="text-sky-400">{notificacionEmailSimulada.cc}</b></p>
+                    <p><span className="text-slate-400">Asunto:</span> <b className="text-white">{notificacionEmailSimulada.asunto}</b></p>
+                    
+                    <div className="mt-3 pt-3 border-t border-slate-800 font-sans text-slate-300 whitespace-pre-line text-[11px] bg-slate-950 p-3 rounded">
+                      {notificacionEmailSimulada.mensaje}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 justify-end">
+                    <a 
+                      href={`mailto:${notificacionEmailSimulada.para}?cc=${encodeURIComponent(notificacionEmailSimulada.cc)}&subject=${encodeURIComponent(notificacionEmailSimulada.asunto)}&body=${encodeURIComponent(notificacionEmailSimulada.mensaje)}`}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded text-xs transition flex items-center gap-1.5"
+                    >
+                      ↗️ Abrir en Gestor de Correo Local
+                    </a>
+                    <button 
+                      onClick={() => setNotificacionEmailSimulada(null)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded text-xs font-semibold"
+                    >
+                      Entendido
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* MODAL: ALTA DE TÉCNICO POR SUPERVISOR                     */}
+            {/* ========================================================= */}
+            {mostrarModalCrearTecnicoSupervisor && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-lg w-full p-6 space-y-4">
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">+ Registrar Técnico Ejecutante</h3>
+                      <p className="text-xs text-slate-400">Habilitará al técnico en la plataforma y en las copias de correo</p>
+                    </div>
+                    <button onClick={() => setMostrarModalCrearTecnicoSupervisor(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <form onSubmit={registrarTecnicoPorSupervisor} className="space-y-3 text-xs">
+                    <div>
+                      <label className="block text-slate-300 mb-1">Nombre Completo del Técnico *</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="Ej. SOTO HUAMAN LUIS ALBERTO"
+                        value={tecNombre}
+                        onChange={e => setTecNombre(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 mb-1">Correo Institucional *</label>
+                      <input 
+                        type="email" 
+                        required
+                        placeholder="luis.soto@felosotec.com"
+                        value={tecEmail}
+                        onChange={e => setTecEmail(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 mb-1">Celular WhatsApp *</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="+51988776655"
+                        value={tecCelular}
+                        onChange={e => setTecCelular(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <button 
+                        type="button"
+                        onClick={() => setMostrarModalCrearTecnicoSupervisor(false)}
+                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded font-semibold"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        type="submit"
+                        className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded transition"
+                      >
+                        Guardar Técnico
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* MODAL: GESTIÓN DE USUARIOS (ADMIN GENERAL)                */}
+            {/* ========================================================= */}
+            {mostrarModalUserAdmin && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">👑 Configuración de Cuentas y Accesos</h3>
+                      <p className="text-xs text-slate-400">Creación y control centralizado de credenciales</p>
+                    </div>
+                    <button onClick={() => setMostrarModalUserAdmin(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <form onSubmit={guardarUsuarioAdmin} className="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <label className="block text-slate-400 mb-1">Nombre de Usuario *</label>
+                        <input 
+                          type="text" 
+                          required 
+                          value={userUsername} 
+                          onChange={e => setUserUsername(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Contraseña *</label>
+                        <input 
+                          type="text" 
+                          required 
+                          value={userPassword} 
+                          onChange={e => setUserPassword(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Rol *</label>
+                        <select 
+                          value={userRol} 
+                          onChange={e => setUserRol(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        >
+                          <option value="TECNICO_EJECUTANTE">Técnico Ejecutante</option>
+                          <option value="SUPERVISOR_SOLICITANTE">Supervisor Solicitante</option>
+                          <option value="ADMIN_LOGISTICA">Admin Logística</option>
+                          <option value="ADMINISTRADOR">Administrador General</option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-400 mb-1">Nombre Completo *</label>
+                        <input 
+                          type="text" 
+                          required 
+                          value={userNombre} 
+                          onChange={e => setUserNombre(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Celular *</label>
+                        <input 
+                          type="text" 
+                          required 
+                          value={userCelular} 
+                          onChange={e => setUserCelular(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-400 mb-1">Correo Electrónico *</label>
+                        <input 
+                          type="email" 
+                          required 
+                          value={userEmail} 
+                          onChange={e => setUserEmail(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+
+                      {userRol === 'SUPERVISOR_SOLICITANTE' && (
+                        <div>
+                          <label className="block text-amber-400 mb-1 font-bold">Tipo de Trabajo *</label>
+                          <select 
+                            value={userTipoTrabajo} 
+                            onChange={e => setUserTipoTrabajo(e.target.value)}
+                            className="w-full bg-slate-950 border border-amber-500/50 rounded p-1.5 text-white font-semibold"
+                          >
+                            {TIPOS_TRABAJO.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <button type="submit" className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded text-xs transition">
+                      {usuarioEnEdicion ? 'Actualizar Cuenta' : 'Crear y Habilitar Acceso'}
+                    </button>
+                  </form>
+
+                  <div className="max-h-60 overflow-y-auto pr-1">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900 text-slate-400 text-[10px]">
+                        <tr>
+                          <th className="p-2">Usuario / Clave</th>
+                          <th className="p-2">Colaborador</th>
+                          <th className="p-2">Rol / Trabajo</th>
+                          <th className="p-2 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800 text-slate-300">
+                        {usuarios.map(u => (
+                          <tr key={u.id} className="hover:bg-slate-900/50">
+                            <td className="p-2 font-mono">
+                              <span className="text-amber-400 font-bold">{u.username}</span>
+                              <p className="text-[10px] text-slate-500">Clave: {u.password}</p>
+                            </td>
+                            <td className="p-2">
+                              <p className="font-semibold">{u.nombre}</p>
+                              <p className="text-[10px] text-slate-400">{u.email}</p>
+                            </td>
+                            <td className="p-2">
+                              <span className="bg-slate-800 text-amber-400 px-1.5 py-0.5 rounded text-[10px] font-mono block w-max">
+                                {u.rol}
+                              </span>
+                            </td>
+                            <td className="p-2 text-right space-x-2">
+                              <button onClick={() => abrirEdicionUsuarioAdmin(u)} className="text-amber-400 hover:underline">Editar</button>
+                              <button onClick={() => eliminarUsuarioAdmin(u.id, u.nombre)} className="text-rose-400 hover:underline">Eliminar</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
