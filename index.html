@@ -2149,6 +2149,8 @@
                                 const val = Number(e.target.value);
                                 const newItems = [...oitParaLiquidar.items];
                                 newItems[idx].cantidadInstalada = val;
+                                // Auto-calcula el sobrante/devuelto = Solicitado - Instalado (sin bajar de 0)
+                                newItems[idx].cantidadDevuelta = Math.max(0, (it.cantidadSolicitada || 0) - val);
                                 setOitParaLiquidar({ ...oitParaLiquidar, items: newItems });
                               }}
                               className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
@@ -2167,6 +2169,7 @@
                                 setOitParaLiquidar({ ...oitParaLiquidar, items: newItems });
                               }}
                               className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                              title="Se autocompleta al escribir la cantidad instalada; puedes ajustarla manualmente si es necesario (ej. algo extraviado o dañado)."
                             />
                           </div>
 
