@@ -4,19 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FELOSOTEC E.I.R.L. | Dashboard Logística LOG_RE_03</title>
-  
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
+
   <!-- React 18 & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
+
   <!-- SheetJS & jsPDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- Chart.js (Reportes y Estadísticas) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
   <!-- Firebase App y Firestore SDKs (Compat v10) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -32,7 +35,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
     // =========================================================================
     // CONFIGURACIÓN DE FIREBASE FIRESTORE (FELOSOTEC PROD)
@@ -64,30 +67,18 @@
       "Instalaciones"
     ];
 
-    // PADRÓN ACTUALIZADO CON TUS MODIFICACIONES REALES (22 COLABORADORES)
+    // ⚠️ Este arreglo es SOLO un respaldo de arranque de emergencia: se usa
+    // ÚNICAMENTE si la colección 'usuarios' de Firestore llegara vacía (por
+    // ejemplo, una instalación nueva o una base de datos borrada por error).
+    // La base de datos en producción ya tiene el padrón real de 22
+    // colaboradores, así que aquí NO se guardan personas reales ni
+    // contraseñas en texto plano — solo una cuenta administradora temporal,
+    // ya con su contraseña protegida (hash), que debe usarse una sola vez
+    // para recrear al resto del personal y cambiarse de inmediato desde
+    // "🔑 Clave". La contraseña real de esta cuenta de emergencia se entrega
+    // por separado (fuera del código fuente).
     const USUARIOS_INICIALES = [
-      {"id":"100","tipoTrabajo":"N/A","username":"admin","email":"admin@felosotec.com","nombre":"ADMINISTRADOR GENERAL","rol":"ADMINISTRADOR","password":"admin123","celular":"+51900000000"},
-      {"id":"1787668878532","rol":"ADMINISTRADOR","nombre":"ELVIS ARTICA CIPRIANO","celular":"+51947119565","tipoTrabajo":"N/A","password":"Danzig69","username":"elvis.arci@gmail.com","email":"elvis.arci@gmail.com"},
-      {"id":"1787669084314","nombre":"ARANA ALDAVE ALCIDES ALFREDO","tipoTrabajo":"N/A","password":"o$KJ8wDxj8E9X6","email":"aarana@felosotec.com","rol":"ADMIN_LOGISTICA","username":"aarana@felosotec.com","celular":"+51997969814"},
-      {"id":"2","tipoTrabajo":"Mantenimiento Preventivo","nombre":"ARTICA CIPRIANO ELVIS ALVITES","email":"eartica@felosotec.com","password":"W3vGNy@!uo2KiZ","rol":"SUPERVISOR_SOLICITANTE","celular":"+51947119565","username":"eartica@felosotec.com"},
-      {"id":"1","celular":"+51923995690","username":"cjeri@felosotec.com","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","password":"3pUDk4b&2NU7FI","nombre":"JERI OBREGON CRISTHINA XIOMARA","email":"cjeri@felosotec.com"},
-      {"id":"3","celular":"+51947116607","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","username":"martica@felosotec.com","email":"martica@felosotec.com","nombre":"ARTICA CIPRIANO MIGUEL ANGEL","password":"&oYTZ#54zW8agn"},
-      {"id":"4","nombre":"REY SANCHEZ SUAREZ SOFIA","username":"sofia.rey","password":"tecnico123","rol":"TECNICO_EJECUTANTE","celular":"+51900000004","email":"sofia.rey@felosotec.com","tipoTrabajo":"N/A"},
-      {"id":"5","nombre":"BORJA MILLA ARNALDO SAMUEL","tipoTrabajo":"N/A","password":"tecnico123","username":"arnaldo.borja","rol":"TECNICO_EJECUTANTE","celular":"+51900000005","email":"arnaldo.borja@felosotec.com"},
-      {"id":"6","nombre":"CHAVEZ NOLASCO EDISSON JOHN","celular":"+51900000006","email":"edisson.chavez@felosotec.com","tipoTrabajo":"N/A","username":"edisson.chavez","password":"tecnico123","rol":"TECNICO_EJECUTANTE"},
-      {"id":"7","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","celular":"+51900000007","email":"francisco.garcia@felosotec.com","nombre":"GARCIA SALVADOR FRANCISCO LONGO","password":"tecnico123","username":"francisco.garcia"},
-      {"id":"8","nombre":"JIMENEZ LOVATON DIEGO ARMANDO","email":"diego.jimenez@felosotec.com","celular":"+51900000008","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","password":"tecnico123","username":"diego.jimenez"},
-      {"id":"9","email":"felix.loyola@felosotec.com","tipoTrabajo":"N/A","password":"tecnico123","celular":"+51900000009","nombre":"LOYOLA SOTO FELIX VICTOR","username":"felix.loyola","rol":"TECNICO_EJECUTANTE"},
-      {"id":"10","username":"jahir.moran","celular":"+51900000010","password":"tecnico123","email":"jahir.moran@felosotec.com","tipoTrabajo":"N/A","nombre":"MORAN MORALES JAHIR STEVEN","rol":"TECNICO_EJECUTANTE"},
-      {"id":"11","username":"leodan.ordonez","nombre":"ORDOÑEZ MARTINEZ LEODAN","password":"tecnico123","celular":"+51900000011","rol":"TECNICO_EJECUTANTE","tipoTrabajo":"N/A","email":"leodan.ordonez@felosotec.com"},
-      {"id":"12","tipoTrabajo":"N/A","nombre":"ORDOÑEZ MARTÍNEZ HUMBERTO","rol":"TECNICO_EJECUTANTE","username":"humberto.ordonez","password":"tecnico123","celular":"+51900000012","email":"humberto.ordonez@felosotec.com"},
-      {"id":"13","nombre":"ORTEGA CHOTA DENNIS ANTONIO","password":"tecnico123","tipoTrabajo":"N/A","celular":"+51900000013","email":"dennis.ortega@felosotec.com","username":"dennis.ortega","rol":"TECNICO_EJECUTANTE"},
-      {"id":"14","username":"arturo.paredes","celular":"+51900000014","tipoTrabajo":"N/A","rol":"TECNICO_EJECUTANTE","email":"arturo.paredes@felosotec.com","password":"tecnico123","nombre":"PAREDES ALATRISTA ARTURO LI"},
-      {"id":"15","celular":"+51900000015","rol":"TECNICO_EJECUTANTE","tipoTrabajo":"N/A","username":"diego.vasquez","email":"diego.vasquez@felosotec.com","nombre":"VASQUEZ MARROQUIN DIEGO ALONSO","password":"tecnico123"},
-      {"id":"16","email":"diego.rivas@felosotec.com","celular":"+51900000016","rol":"TECNICO_EJECUTANTE","nombre":"RIVAS HUANCA DIEGO RAUL","tipoTrabajo":"N/A","username":"diego.rivas","password":"tecnico123"},
-      {"id":"17","celular":"+51900000017","rol":"TECNICO_EJECUTANTE","email":"josue.cabanillas@felosotec.com","username":"josue.cabanillas","tipoTrabajo":"N/A","password":"tecnico123","nombre":"CABANILLAS AGUSTIN JOSUÉ OSWALDO"},
-      {"id":"18","celular":"+51900000018","tipoTrabajo":"N/A","nombre":"VILLACORTA GUARNIZ MILTON GREGORIO","username":"milton.villacorta","rol":"TECNICO_EJECUTANTE","password":"tecnico123","email":"milton.villacorta@felosotec.com"},
-      {"id":"19","email":"edwin.zevallos@felosotec.com","tipoTrabajo":"N/A","nombre":"ZEVALLOS PAGAN EDWIN DAVID","username":"edwin.zevallos","celular":"+51900000019","password":"tecnico123","rol":"TECNICO_EJECUTANTE"}
+      {"id":"100","tipoTrabajo":"N/A","username":"admin","email":"admin@felosotec.com","nombre":"ADMINISTRADOR GENERAL","rol":"ADMINISTRADOR","password":"e2cacc062f4caff9ad9cfcbd8487af8a:b867fae2489c52aa93f6ad205a70ec91b2a50405eb5a6bbd4607bd904b56c338","celular":"+51900000000"}
     ];
 
     // ÓRDENES INICIALES ACTUALIZADAS CON TU REGISTRO REAL
@@ -139,6 +130,192 @@
       return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     };
 
+    // =========================================================================
+    // SEGURIDAD DE CONTRASEÑAS (hash SHA-256 con sal por usuario)
+    // =========================================================================
+    // Formato guardado en Firestore: "salHex:hashHex" (nunca texto plano).
+    // Nota honesta: al no haber un servidor propio (sitio estático + Firestore
+    // directo desde el navegador), esto protege muy bien contra una fuga de la
+    // base de datos o del código fuente, pero no es 100% equivalente a un
+    // backend de autenticación real (Firebase Authentication + reglas por
+    // usuario). Es la mejora práctica más fuerte posible sin cambiar cómo
+    // entran hoy los usuarios.
+    const generarSal = () => {
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const hashConSal = async (texto, sal) => {
+      const datos = new TextEncoder().encode(`${sal}:${texto}`);
+      const buffer = await crypto.subtle.digest('SHA-256', datos);
+      return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const generarPasswordHasheada = async (passwordPlano) => {
+      const sal = generarSal();
+      const hash = await hashConSal(passwordPlano, sal);
+      return `${sal}:${hash}`;
+    };
+
+    const esFormatoHash = (valor) => typeof valor === 'string' && /^[0-9a-f]{32}:[0-9a-f]{64}$/.test(valor);
+
+    // Convierte "DD/MM/AAAA HH:mm:ss" a Date, usado por los reportes/estadísticas.
+    const parsearFechaHoraCompleta = (texto) => {
+      if (!texto) return null;
+      const [fecha, hora] = texto.split(' ');
+      if (!fecha) return null;
+      const [d, m, a] = fecha.split('/').map(Number);
+      if (!d || !m || !a) return null;
+      let hh = 0, mm = 0, ss = 0;
+      if (hora) {
+        const partes = hora.split(':').map(Number);
+        hh = partes[0] || 0; mm = partes[1] || 0; ss = partes[2] || 0;
+      }
+      return new Date(a, m - 1, d, hh, mm, ss);
+    };
+
+    // Compara una contraseña ingresada contra el valor guardado. Admite el
+    // formato antiguo (texto plano) para no romper el acceso de cuentas que
+    // aún no se han logueado desde esta actualización; ese caso se migra
+    // automáticamente a hash en el primer login exitoso (ver handleLogin).
+    const verificarPassword = async (passwordIngresada, valorGuardado) => {
+      if (!valorGuardado) return false;
+      if (esFormatoHash(valorGuardado)) {
+        const [sal, hash] = valorGuardado.split(':');
+        const hashCalculado = await hashConSal(passwordIngresada, sal);
+        return hashCalculado === hash;
+      }
+      return valorGuardado === passwordIngresada;
+    };
+
+    // =========================================================================
+    // PANEL DE REPORTES Y ESTADÍSTICAS (Admin / Admin Logística)
+    // =========================================================================
+    function PanelReportes({ ordenes }) {
+      const refPorTecnico = useRef(null);
+      const refPorCliente = useRef(null);
+      const chartTecnicoRef = useRef(null);
+      const chartClienteRef = useRef(null);
+
+      const conteoPorTecnico = {};
+      ordenes.forEach(o => {
+        const nombre = o.tecnicoNombre || 'Sin asignar';
+        conteoPorTecnico[nombre] = (conteoPorTecnico[nombre] || 0) + 1;
+      });
+
+      const conteoPorCliente = {};
+      ordenes.forEach(o => {
+        const nombre = o.cliente || 'Sin cliente';
+        conteoPorCliente[nombre] = (conteoPorCliente[nombre] || 0) + 1;
+      });
+      const topClientes = Object.entries(conteoPorCliente).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      const tiemposDespachoHoras = [];
+      const tiemposCierreHoras = [];
+      ordenes.forEach(o => {
+        const fSol = parsearFechaHoraCompleta(o.fechaSolicitud);
+        const fEnt = parsearFechaHoraCompleta(o.fechaEntrega);
+        const fCie = parsearFechaHoraCompleta(o.fechaCierre);
+        if (fSol && fEnt) tiemposDespachoHoras.push((fEnt - fSol) / 3600000);
+        if (fEnt && fCie) tiemposCierreHoras.push((fCie - fEnt) / 3600000);
+      });
+      const promedio = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+      const promDespacho = promedio(tiemposDespachoHoras);
+      const promCierre = promedio(tiemposCierreHoras);
+
+      useEffect(() => {
+        if (!window.Chart) return;
+
+        if (chartTecnicoRef.current) chartTecnicoRef.current.destroy();
+        if (refPorTecnico.current) {
+          chartTecnicoRef.current = new window.Chart(refPorTecnico.current, {
+            type: 'bar',
+            data: {
+              labels: Object.keys(conteoPorTecnico),
+              datasets: [{ label: 'OITs por Técnico', data: Object.values(conteoPorTecnico), backgroundColor: '#f59e0b' }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { color: '#1e293b' } },
+                y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' }, beginAtZero: true }
+              }
+            }
+          });
+        }
+
+        if (chartClienteRef.current) chartClienteRef.current.destroy();
+        if (refPorCliente.current) {
+          chartClienteRef.current = new window.Chart(refPorCliente.current, {
+            type: 'bar',
+            data: {
+              labels: topClientes.map(c => c[0]),
+              datasets: [{ label: 'OITs por Cliente', data: topClientes.map(c => c[1]), backgroundColor: '#38bdf8' }]
+            },
+            options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' }, beginAtZero: true },
+                y: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { color: '#1e293b' } }
+              }
+            }
+          });
+        }
+
+        return () => {
+          if (chartTecnicoRef.current) chartTecnicoRef.current.destroy();
+          if (chartClienteRef.current) chartClienteRef.current.destroy();
+        };
+      }, [ordenes]);
+
+      return (
+        <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-6">
+          <div>
+            <h2 className="text-sm font-bold text-white">📈 Reportes y Estadísticas</h2>
+            <p className="text-xs text-slate-400">Resumen operativo sobre el total de órdenes registradas en la nube</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wide">Tiempo promedio de despacho</p>
+              <p className="text-2xl font-extrabold text-amber-400 mt-1">
+                {promDespacho !== null ? `${promDespacho.toFixed(1)} h` : 'Sin datos suficientes'}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Desde la solicitud hasta el despacho físico</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wide">Tiempo promedio de cierre</p>
+              <p className="text-2xl font-extrabold text-emerald-400 mt-1">
+                {promCierre !== null ? `${promCierre.toFixed(1)} h` : 'Sin datos suficientes'}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Desde el despacho hasta la conciliación final</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs font-bold text-slate-300 mb-2">OITs por Técnico</p>
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-3" style={{ height: '260px' }}>
+                <canvas ref={refPorTecnico}></canvas>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-300 mb-2">Top Clientes por N° de OITs</p>
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-3" style={{ height: '260px' }}>
+                <canvas ref={refPorCliente}></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function App() {
       const [usuarios, setUsuarios] = useState(() => {
         const u = localStorage.getItem('FELOSOTEC_USUARIOS_AUTH_V3');
@@ -160,6 +337,7 @@
       });
 
       // Modales
+      const [mostrarReportes, setMostrarReportes] = useState(false);
       const [mostrarModalUserAdmin, setMostrarModalUserAdmin] = useState(false);
       const [mostrarModalCrearTecnicoSupervisor, setMostrarModalCrearTecnicoSupervisor] = useState(false);
       const [mostrarModalCambiarMiPassword, setMostrarModalCambiarMiPassword] = useState(false);
@@ -214,11 +392,71 @@
       // Modal Liquidación Técnico
       const [oitParaLiquidar, setOitParaLiquidar] = useState(null);
 
+      // Filtros y paginación de la Bandeja Global (Admin/Logística)
+      const [filtroEstado, setFiltroEstado] = useState('TODOS');
+      const [filtroCliente, setFiltroCliente] = useState('');
+      const [filtroTecnicoId, setFiltroTecnicoId] = useState('TODOS');
+      const [filtroTipoTrabajo, setFiltroTipoTrabajo] = useState('TODOS');
+      const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
+      const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
+      const [paginaActual, setPaginaActual] = useState(1);
+      const ITEMS_POR_PAGINA = 10;
+
       const tecnicos = usuarios.filter(u => u.rol === 'TECNICO_EJECUTANTE');
 
+      // Convierte "DD/MM/AAAA HH:mm:ss" a Date para comparar rangos de fecha.
+      const parsearFechaSolicitud = (texto) => {
+        if (!texto) return null;
+        const [fecha] = texto.split(' ');
+        const [d, m, a] = fecha.split('/').map(Number);
+        if (!d || !m || !a) return null;
+        return new Date(a, m - 1, d);
+      };
+
+      const ordenesFiltradas = ordenes.filter(o => {
+        if (filtroEstado !== 'TODOS' && o.estado !== filtroEstado) return false;
+        if (filtroTecnicoId !== 'TODOS' && o.tecnicoId !== filtroTecnicoId) return false;
+        if (filtroTipoTrabajo !== 'TODOS' && o.tipoTrabajo !== filtroTipoTrabajo) return false;
+        if (filtroCliente.trim() && !(o.cliente || '').toLowerCase().includes(filtroCliente.trim().toLowerCase())) return false;
+
+        const fechaOrden = parsearFechaSolicitud(o.fechaSolicitud);
+        if (filtroFechaDesde && fechaOrden) {
+          const desde = new Date(filtroFechaDesde);
+          if (fechaOrden < desde) return false;
+        }
+        if (filtroFechaHasta && fechaOrden) {
+          const hasta = new Date(filtroFechaHasta);
+          hasta.setHours(23, 59, 59, 999);
+          if (fechaOrden > hasta) return false;
+        }
+        return true;
+      });
+
+      const totalPaginas = Math.max(1, Math.ceil(ordenesFiltradas.length / ITEMS_POR_PAGINA));
+      const paginaSegura = Math.min(paginaActual, totalPaginas);
+      const ordenesPaginadas = ordenesFiltradas.slice(
+        (paginaSegura - 1) * ITEMS_POR_PAGINA,
+        paginaSegura * ITEMS_POR_PAGINA
+      );
+
+      const limpiarFiltros = () => {
+        setFiltroEstado('TODOS');
+        setFiltroCliente('');
+        setFiltroTecnicoId('TODOS');
+        setFiltroTipoTrabajo('TODOS');
+        setFiltroFechaDesde('');
+        setFiltroFechaHasta('');
+        setPaginaActual(1);
+      };
+
       // --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE ---
+      // Ojo: esta suscripción arranca SOLO después de iniciar sesión
+      // (usuarioAutenticado truthy). Antes del login, la app ya no descarga
+      // el padrón completo de usuarios (con sus contraseñas hasheadas) al
+      // navegador; la validación de credenciales se hace con una consulta
+      // puntual en handleLogin. Al cerrar sesión, la suscripción se cancela.
       useEffect(() => {
-        if (!firebaseHabilitado || !db) return;
+        if (!firebaseHabilitado || !db || !usuarioAutenticado) return;
 
         const unsubUsuarios = db.collection('usuarios').onSnapshot((snap) => {
           if (snap.empty) {
@@ -248,7 +486,7 @@
           unsubUsuarios();
           unsubOrdenes();
         };
-      }, []);
+      }, [usuarioAutenticado]);
 
       useEffect(() => {
         if (usuarioAutenticado) {
@@ -256,6 +494,32 @@
         } else {
           localStorage.removeItem('FELOSOTEC_AUTH_SESSION_V3');
         }
+      }, [usuarioAutenticado]);
+
+      // --- CIERRE DE SESIÓN AUTOMÁTICO POR INACTIVIDAD (30 minutos) ---
+      useEffect(() => {
+        if (!usuarioAutenticado) return;
+        const LIMITE_INACTIVIDAD_MS = 30 * 60 * 1000;
+        let temporizador = setTimeout(() => {
+          setUsuarioAutenticado(null);
+          alert('Sesión cerrada automáticamente por inactividad (30 min). Vuelva a iniciar sesión.');
+        }, LIMITE_INACTIVIDAD_MS);
+
+        const reiniciarTemporizador = () => {
+          clearTimeout(temporizador);
+          temporizador = setTimeout(() => {
+            setUsuarioAutenticado(null);
+            alert('Sesión cerrada automáticamente por inactividad (30 min). Vuelva a iniciar sesión.');
+          }, LIMITE_INACTIVIDAD_MS);
+        };
+
+        const eventos = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+        eventos.forEach(ev => window.addEventListener(ev, reiniciarTemporizador));
+
+        return () => {
+          clearTimeout(temporizador);
+          eventos.forEach(ev => window.removeEventListener(ev, reiniciarTemporizador));
+        };
       }, [usuarioAutenticado]);
 
       useEffect(() => {
@@ -269,20 +533,62 @@
       };
 
       // --- LOGIN (ACEPTA TANTO USERNAME COMO EMAIL) ---
-      const handleLogin = (e) => {
+      const [validandoLogin, setValidandoLogin] = useState(false);
+
+      // Busca al usuario con una consulta puntual a Firestore (por username o
+      // por email) en vez de descargar toda la colección antes de loguearse.
+      const buscarUsuarioPorCredencial = async (entrada) => {
+        if (firebaseHabilitado && db) {
+          let snap = await db.collection('usuarios').where('username', '==', entrada).limit(1).get();
+          if (snap.empty) {
+            snap = await db.collection('usuarios').where('email', '==', entrada).limit(1).get();
+          }
+          if (snap.empty) return null;
+          const doc = snap.docs[0];
+          return { id: doc.id, ...doc.data() };
+        }
+        // Fallback sin Firestore (modo local con USUARIOS_INICIALES/localStorage)
+        return usuarios.find(u => u.username.toLowerCase() === entrada || u.email.toLowerCase() === entrada) || null;
+      };
+
+      const handleLogin = async (e) => {
         e.preventDefault();
-        const entrada = loginUser.trim().toLowerCase();
-        const found = usuarios.find(u => 
-          (u.username.toLowerCase() === entrada || u.email.toLowerCase() === entrada) && 
-          u.password === loginPass
-        );
-        if (found) {
-          setUsuarioAutenticado(found);
-          setErrorLogin('');
+        setErrorLogin('');
+        setValidandoLogin(true);
+        try {
+          const entrada = loginUser.trim().toLowerCase();
+          const candidato = await buscarUsuarioPorCredencial(entrada);
+
+          const passwordValida = candidato ? await verificarPassword(loginPass, candidato.password) : false;
+
+          if (!candidato || !passwordValida) {
+            setErrorLogin('Usuario o contraseña incorrectos. Verifique sus credenciales.');
+            return;
+          }
+
+          let usuarioFinal = candidato;
+
+          // Migración perezosa: si la contraseña todavía está en texto plano
+          // (cuenta que no se ha logueado desde esta actualización), se
+          // convierte a hash ahora mismo, de forma transparente para el usuario.
+          if (firebaseHabilitado && db && !esFormatoHash(candidato.password)) {
+            try {
+              const nuevoValor = await generarPasswordHasheada(loginPass);
+              await db.collection('usuarios').doc(candidato.id).update({ password: nuevoValor });
+              usuarioFinal = { ...candidato, password: nuevoValor };
+            } catch (err) {
+              console.error('No se pudo migrar la contraseña a formato seguro:', err);
+            }
+          }
+
+          setUsuarioAutenticado(usuarioFinal);
           setLoginUser('');
           setLoginPass('');
-        } else {
-          setErrorLogin('Usuario o contraseña incorrectos. Verifique sus credenciales.');
+        } catch (err) {
+          console.error('Error al iniciar sesión:', err);
+          setErrorLogin('No se pudo validar el acceso. Intente nuevamente.');
+        } finally {
+          setValidandoLogin(false);
         }
       };
 
@@ -293,7 +599,8 @@
       // --- CAMBIAR MI PROPIA CONTRASEÑA ---
       const guardarMiNuevaPassword = async (e) => {
         e.preventDefault();
-        if (usuarioAutenticado.password !== miPassActual) {
+        const actualValida = await verificarPassword(miPassActual, usuarioAutenticado.password);
+        if (!actualValida) {
           return alert('La contraseña actual ingresada es incorrecta.');
         }
         if (miPassNueva.length < 4) {
@@ -303,13 +610,15 @@
           return alert('La confirmación de la nueva contraseña no coincide.');
         }
 
+        const nuevoValorPassword = firebaseHabilitado ? await generarPasswordHasheada(miPassNueva) : miPassNueva;
+
         const usuarioActualizado = {
           ...usuarioAutenticado,
-          password: miPassNueva
+          password: nuevoValorPassword
         };
 
         if (firebaseHabilitado && db) {
-          await db.collection('usuarios').doc(usuarioActualizado.id).update({ password: miPassNueva });
+          await db.collection('usuarios').doc(usuarioActualizado.id).update({ password: nuevoValorPassword });
         }
 
         setUsuarioAutenticado(usuarioActualizado);
@@ -361,7 +670,7 @@
       const abrirEdicionUsuarioAdmin = (u) => {
         setUsuarioEnEdicion(u);
         setUserUsername(u.username);
-        setUserPassword(u.password);
+        setUserPassword(''); // nunca se prellena: en blanco = no cambiar la contraseña
         setUserNombre(u.nombre);
         setUserEmail(u.email);
         setUserCelular(u.celular);
@@ -371,18 +680,25 @@
 
       const guardarUsuarioAdmin = async (e) => {
         e.preventDefault();
-        if (!userUsername.trim() || !userPassword.trim() || !userNombre.trim()) {
+        const esEdicion = !!usuarioEnEdicion;
+        // Al editar, la contraseña es opcional (en blanco = no se cambia).
+        // Al crear una cuenta nueva, sí es obligatoria.
+        if (!userUsername.trim() || !userNombre.trim() || (!esEdicion && !userPassword.trim())) {
           return alert('Complete todos los campos obligatorios.');
         }
 
         const ahora = formatearFechaHora();
         const tipoFinal = userRol === 'SUPERVISOR_SOLICITANTE' ? userTipoTrabajo : 'N/A';
 
-        if (usuarioEnEdicion) {
+        if (esEdicion) {
+          const valorPassword = userPassword.trim()
+            ? (firebaseHabilitado ? await generarPasswordHasheada(userPassword) : userPassword)
+            : usuarioEnEdicion.password; // sin cambios
+
           const uActualizado = {
             ...usuarioEnEdicion,
             username: userUsername.trim().toLowerCase(),
-            password: userPassword,
+            password: valorPassword,
             nombre: userNombre.toUpperCase().trim(),
             email: userEmail.toLowerCase().trim(),
             celular: userCelular.trim(),
@@ -397,10 +713,12 @@
             return alert('El nombre de usuario ya existe.');
           }
 
+          const valorPassword = firebaseHabilitado ? await generarPasswordHasheada(userPassword) : userPassword;
+
           const nuevo = {
             id: Date.now().toString(),
             username: userUsername.trim().toLowerCase(),
-            password: userPassword,
+            password: valorPassword,
             nombre: userNombre.toUpperCase().trim(),
             email: userEmail.toLowerCase().trim(),
             celular: userCelular.trim(),
@@ -437,11 +755,13 @@
         if (!tecNombre.trim() || !tecEmail.trim() || !tecCelular.trim()) return alert('Complete los datos');
         const ahora = formatearFechaHora();
         const baseUsername = tecEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        const passwordProvisional = 'tecnico123'; // se comunica aparte al técnico; debe cambiarla en su primer ingreso
+        const valorPasswordTecnico = firebaseHabilitado ? await generarPasswordHasheada(passwordProvisional) : passwordProvisional;
 
         const nuevoTecnico = {
           id: Date.now().toString(),
           username: baseUsername,
-          password: 'tecnico123',
+          password: valorPasswordTecnico,
           nombre: tecNombre.toUpperCase().trim(),
           email: tecEmail.toLowerCase().trim(),
           celular: tecCelular.trim(),
@@ -455,7 +775,7 @@
         setTecEmail('');
         setTecCelular('');
         setMostrarModalCrearTecnicoSupervisor(false);
-        alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado.`);
+        alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado.\n\nUsuario: ${nuevoTecnico.username}\nContraseña provisional: ${passwordProvisional}\n\nComuníquele esta contraseña por un canal seguro y pídale cambiarla apenas ingrese (botón 🔑 Clave).`);
       };
 
       // --- OPERACIONES OIT ---
@@ -507,10 +827,10 @@
           fechaCierre: null,
           estado: 'SOLICITADO',
           historialMovimientos: [
-            { 
-              fechaHora: ahora, 
-              usuario: supervisorActual.nombre, 
-              accion: `Registro de Requerimiento OIT y envío de correo a ${logisticaObj.email} con CC a ${tecnicoObj.email}` 
+            {
+              fechaHora: ahora,
+              usuario: supervisorActual.nombre,
+              accion: `Registro de Requerimiento OIT y envío de correo a ${logisticaObj.email} con CC a ${tecnicoObj.email}`
             }
           ],
           items: itemsBorrador
@@ -823,7 +1143,7 @@
         doc.setTextColor(15, 23, 42);
         doc.text("HISTORIAL DE MOVIMIENTOS Y NOTIFICACIONES:", 14, finalY);
         finalY += 4;
-        
+
         const historyBody = o.historialMovimientos?.map(h => [h.fechaHora, h.usuario, h.accion]) || [];
         doc.autoTable({
           startY: finalY,
@@ -885,8 +1205,8 @@
               <form onSubmit={handleLogin} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Usuario o Correo Institucional</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     placeholder="Ej. aarana@felosotec.com, eartica@felosotec.com"
                     value={loginUser}
@@ -897,8 +1217,8 @@
 
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Contraseña</label>
-                  <input 
-                    type="password" 
+                  <input
+                    type="password"
                     required
                     placeholder="••••••••"
                     value={loginPass}
@@ -907,20 +1227,17 @@
                   />
                 </div>
 
-                <button 
+                <button
                   type="submit"
-                  className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-lg text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/10"
+                  disabled={validandoLogin}
+                  className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-bold py-3 rounded-lg text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/10"
                 >
-                  Iniciar Sesión
+                  {validandoLogin ? 'Verificando...' : 'Iniciar Sesión'}
                 </button>
               </form>
 
-              <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-                <p className="font-semibold text-slate-300">Accesos Habilitados (Padrón 22 Usuarios):</p>
-                <p>• <b>Admin Logística:</b> <code className="text-amber-400">aarana@felosotec.com</code> / <code className="text-amber-400">o$KJ8wDxj8E9X6</code></p>
-                <p>• <b>Supervisor:</b> <code className="text-amber-400">eartica@felosotec.com</code> / <code className="text-amber-400">W3vGNy@!uo2KiZ</code></p>
-                <p>• <b>Técnico:</b> <code className="text-amber-400">martica@felosotec.com</code> / <code className="text-amber-400">&oYTZ#54zW8agn</code></p>
-                <p>• <b>Admin General:</b> <code className="text-amber-400">admin</code> / <code className="text-amber-400">admin123</code></p>
+              <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 text-center">
+                <p>¿Olvidó su contraseña? Solicítela a su administrador de logística.</p>
               </div>
             </div>
           </div>
@@ -935,6 +1252,24 @@
       // Enlace directo a Gmail web seleccionando la cuenta de dominio del supervisor
       const generarEnlaceGmailCorporativo = (remitenteEmail, para, cc, asunto, mensaje) => {
         return `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(remitenteEmail)}&view=cm&fs=1&to=${encodeURIComponent(para)}&cc=${encodeURIComponent(cc)}&su=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
+      };
+
+      // --- NOTIFICACIÓN POR WHATSAPP (botón con mensaje prellenado) ---
+      const buscarCelularPorEmail = (email) => {
+        const u = usuarios.find(us => (us.email || '').toLowerCase() === (email || '').toLowerCase());
+        return u ? u.celular : null;
+      };
+
+      const generarEnlaceWhatsApp = (celular, mensaje) => {
+        if (!celular) return null;
+        const soloDigitos = celular.replace(/[^0-9]/g, '');
+        if (!soloDigitos) return null;
+        return `https://wa.me/${soloDigitos}?text=${encodeURIComponent(mensaje)}`;
+      };
+
+      const construirMensajeWhatsApp = (asunto, mensaje) => {
+        const cuerpo = mensaje.length > 700 ? mensaje.slice(0, 700) + '…' : mensaje;
+        return `*${asunto}*\n\n${cuerpo}`;
       };
 
       return (
@@ -963,16 +1298,16 @@
                 </div>
               </div>
 
-              {/* GESTOR DE CONTRASEÑA */}
-              <button 
+              {/* GESTOR DE CONTRASEÑA (resaltado para que sea fácil de encontrar) */}
+              <button
                 onClick={() => setMostrarModalCambiarMiPassword(true)}
                 title="Modificar mi contraseña de acceso"
-                className="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 px-2.5 py-1.5 rounded-lg font-semibold transition text-xs border border-amber-500/30 flex items-center gap-1"
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition text-xs border border-amber-400 flex items-center gap-1.5 shadow-md shadow-amber-500/20"
               >
-                🔑 Clave
+                🔑 Cambiar mi Clave
               </button>
 
-              <button 
+              <button
                 onClick={handleLogout}
                 className="bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-300 px-3 py-1.5 rounded-lg font-semibold transition text-xs"
               >
@@ -986,20 +1321,20 @@
             {/* VISTA: ADMIN GENERAL Y ADMIN LOGÍSTICA */}
             {(rol === 'ADMINISTRADOR' || rol === 'ADMIN_LOGISTICA') && (
               <div className="space-y-6">
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-xl shadow-lg">
                     <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🟡 Solicitado</span>
                     <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'SOLICITADO').length}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">Por Despachar</p>
                   </div>
-                  
+
                   <div className="bg-slate-950 border border-sky-500/30 p-4 rounded-xl shadow-lg">
                     <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">🔵 Despachado</span>
                     <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'DESPACHADO').length}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">En Tránsito / Campo</p>
                   </div>
-                  
+
                   <div className="bg-slate-950 border border-purple-500/30 p-4 rounded-xl shadow-lg">
                     <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🟣 Por Conciliar</span>
                     <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'TRABAJO_FINALIZADO').length}</p>
@@ -1011,7 +1346,7 @@
                     <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'PENDIENTE').length}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">En Espera Supervisor</p>
                   </div>
-                  
+
                   <div className="bg-slate-950 border border-emerald-500/30 p-4 rounded-xl shadow-lg">
                     <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">🟢 Conciliado</span>
                     <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'CERRADO_CONCILIADO').length}</p>
@@ -1021,20 +1356,28 @@
 
                 <div className="flex flex-wrap gap-3">
                   {rol === 'ADMINISTRADOR' && (
-                    <button 
+                    <button
                       onClick={() => { setMostrarModalUserAdmin(true); abrirCreacionUsuarioAdmin(); }}
                       className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
                     >
                       👑 Gestión de Usuarios y Claves ({usuarios.length})
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={exportarExcel}
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
                   >
                     📊 Descargar Sábana Excel LOG_RE_03
                   </button>
+                  <button
+                    onClick={() => setMostrarReportes(v => !v)}
+                    className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                  >
+                    📈 {mostrarReportes ? 'Ocultar Reportes' : 'Ver Reportes y Estadísticas'}
+                  </button>
                 </div>
+
+                {mostrarReportes && <PanelReportes ordenes={ordenes} />}
 
                 <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
                   <div className="p-4 border-b border-slate-800 flex justify-between items-center">
@@ -1042,7 +1385,83 @@
                       <h2 className="text-sm font-bold text-white">Bandeja Global de Requerimientos OIT / TK</h2>
                       <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación sincronizada</p>
                     </div>
-                    <span className="text-xs text-slate-400">Total: {ordenes.length} órdenes en la nube</span>
+                    <span className="text-xs text-slate-400">
+                      {ordenesFiltradas.length} de {ordenes.length} órdenes {ordenesFiltradas.length !== ordenes.length ? '(filtradas)' : 'en la nube'}
+                    </span>
+                  </div>
+
+                  {/* FILTROS Y BÚSQUEDA */}
+                  <div className="p-4 border-b border-slate-800 bg-slate-900/40 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                    <div>
+                      <label className="block text-slate-500 mb-1">Estado</label>
+                      <select
+                        value={filtroEstado}
+                        onChange={e => { setFiltroEstado(e.target.value); setPaginaActual(1); }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                      >
+                        <option value="TODOS">Todos</option>
+                        {Object.keys(ESTADO_COLORES).map(est => <option key={est} value={est}>{est}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 mb-1">Cliente</label>
+                      <input
+                        type="text"
+                        placeholder="Buscar cliente..."
+                        value={filtroCliente}
+                        onChange={e => { setFiltroCliente(e.target.value); setPaginaActual(1); }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 mb-1">Técnico</label>
+                      <select
+                        value={filtroTecnicoId}
+                        onChange={e => { setFiltroTecnicoId(e.target.value); setPaginaActual(1); }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                      >
+                        <option value="TODOS">Todos</option>
+                        {tecnicos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 mb-1">Tipo de Trabajo</label>
+                      <select
+                        value={filtroTipoTrabajo}
+                        onChange={e => { setFiltroTipoTrabajo(e.target.value); setPaginaActual(1); }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                      >
+                        <option value="TODOS">Todos</option>
+                        {TIPOS_TRABAJO.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 mb-1">Desde</label>
+                      <input
+                        type="date"
+                        value={filtroFechaDesde}
+                        onChange={e => { setFiltroFechaDesde(e.target.value); setPaginaActual(1); }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                      />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="block text-slate-500 mb-1">Hasta</label>
+                        <input
+                          type="date"
+                          value={filtroFechaHasta}
+                          onChange={e => { setFiltroFechaHasta(e.target.value); setPaginaActual(1); }}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+                      <button
+                        onClick={limpiarFiltros}
+                        title="Limpiar filtros"
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded border border-slate-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -1058,12 +1477,12 @@
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800 text-slate-300">
-                        {ordenes.map(ord => (
+                        {ordenesPaginadas.map(ord => (
                           <tr key={ord.id} className="hover:bg-slate-900/40">
                             <td className="p-3 font-mono font-bold text-amber-400">
                               {ord.codigoOit}
                               <p className="text-[10px] text-slate-500 font-normal">{ord.fechaSolicitud}</p>
-                              <button 
+                              <button
                                 onClick={() => setOitParaAuditoria(ord)}
                                 className="text-[10px] text-sky-400 hover:underline mt-1 block"
                               >
@@ -1079,7 +1498,7 @@
                             <td className="p-3">
                               <p className="text-[11px] text-slate-300">Sup: <b>{ord.supervisorNombre}</b></p>
                               <p className="text-[11px] text-sky-400">Téc: <b>{ord.tecnicoNombre}</b></p>
-                              
+
                               <div className="mt-1 pt-1 border-t border-slate-800/80">
                                 <p className="text-[10px] text-slate-400">
                                   Despachó: {ord.despachadoPorUsuario ? (
@@ -1110,7 +1529,7 @@
                               </span>
                             </td>
                             <td className="p-3 text-right space-x-1.5">
-                              <button 
+                              <button
                                 onClick={() => abrirModalEdicionOit(ord)}
                                 className="bg-slate-800 hover:bg-slate-700 text-amber-400 px-2 py-1.5 rounded text-[11px] border border-amber-500/30 transition font-semibold"
                               >
@@ -1118,7 +1537,7 @@
                               </button>
 
                               {(ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE') && (
-                                <button 
+                                <button
                                   onClick={() => despacharOrden(ord.id)}
                                   className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 py-1.5 rounded text-[11px] transition shadow-md shadow-amber-500/10"
                                 >
@@ -1127,7 +1546,7 @@
                               )}
 
                               {ord.estado === 'TRABAJO_FINALIZADO' && (
-                                <button 
+                                <button
                                   onClick={() => conciliarYCerrar(ord.id)}
                                   className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px] transition"
                                 >
@@ -1135,7 +1554,7 @@
                                 </button>
                               )}
 
-                              <button 
+                              <button
                                 onClick={() => exportarPdfActa(ord)}
                                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1.5 rounded text-[11px] border border-slate-700"
                               >
@@ -1143,7 +1562,7 @@
                               </button>
 
                               {rol === 'ADMINISTRADOR' && (
-                                <button 
+                                <button
                                   onClick={() => eliminarRequerimientoAdmin(ord.id, ord.codigoOit)}
                                   title="Eliminar requerimiento"
                                   className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-400 border border-rose-500/30 px-2 py-1.5 rounded text-[11px] transition font-semibold"
@@ -1156,7 +1575,32 @@
                         ))}
                       </tbody>
                     </table>
+                    {ordenesFiltradas.length === 0 && (
+                      <p className="text-center text-slate-500 text-xs py-8">No hay requerimientos que coincidan con los filtros seleccionados.</p>
+                    )}
                   </div>
+
+                  {ordenesFiltradas.length > 0 && (
+                    <div className="p-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                      <span>Página {paginaSegura} de {totalPaginas}</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                          disabled={paginaSegura <= 1}
+                          className="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 px-3 py-1.5 rounded border border-slate-700"
+                        >
+                          ← Anterior
+                        </button>
+                        <button
+                          onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                          disabled={paginaSegura >= totalPaginas}
+                          className="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 px-3 py-1.5 rounded border border-slate-700"
+                        >
+                          Siguiente →
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1171,7 +1615,7 @@
                       Tipo de Trabajo Habilitado: {usuarioAutenticado.tipoTrabajo} | Solicitante: {usuarioAutenticado.email}
                     </p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setMostrarModalCrearTecnicoSupervisor(true)}
                     className="bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
                   >
@@ -1194,29 +1638,29 @@
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       <div>
                         <label className="block text-slate-400 mb-1 font-semibold">Código OIT / TK *</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="Ej. S486299" 
-                          value={codigoOit} 
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. S486299"
+                          value={codigoOit}
                           onChange={e => setCodigoOit(e.target.value)}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono uppercase focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1 font-semibold">Cliente Final</label>
-                        <input 
-                          type="text" 
-                          required 
-                          value={cliente} 
+                        <input
+                          type="text"
+                          required
+                          value={cliente}
                           onChange={e => setCliente(e.target.value)}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-amber-500 focus:outline-none"
                         />
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1 font-semibold">Tipo de Trabajo</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           disabled
                           value={usuarioAutenticado.tipoTrabajo}
                           className="w-full bg-slate-900/50 border border-slate-800 rounded p-2 text-amber-400 font-bold cursor-not-allowed"
@@ -1224,8 +1668,8 @@
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1 font-semibold">Técnico Ejecutante Asignado *</label>
-                        <select 
-                          value={tecnicoAsignadoId} 
+                        <select
+                          value={tecnicoAsignadoId}
                           onChange={e => setTecnicoAsignadoId(e.target.value)}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-amber-500 focus:outline-none"
                         >
@@ -1254,10 +1698,10 @@
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
                           <div className="sm:col-span-2">
                             <label className="block text-slate-400 mb-1">Descripción del Ítem</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               placeholder={tabActiva === 'EQUIPO' ? 'Router H3C MSR1008' : tabActiva === 'HERRAMIENTA' ? 'Ponchadora RJ45 AMP' : 'Cintillos Blancos 200mm'}
-                              value={itemDesc} 
+                              value={itemDesc}
                               onChange={e => setItemDesc(e.target.value)}
                               className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
                             />
@@ -1265,10 +1709,10 @@
                           {tabActiva !== 'MATERIAL' && (
                             <div>
                               <label className="block text-slate-400 mb-1">N° Serie / Activo</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 placeholder="Ej. H3C-99281"
-                                value={itemSerie} 
+                                value={itemSerie}
                                 onChange={e => setItemSerie(e.target.value)}
                                 className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
                               />
@@ -1276,18 +1720,18 @@
                           )}
                           <div>
                             <label className="block text-slate-400 mb-1">Cantidad Solicitada</label>
-                            <input 
-                              type="number" 
-                              min="1" 
-                              value={itemCant} 
+                            <input
+                              type="number"
+                              min="1"
+                              value={itemCant}
                               onChange={e => setItemCant(e.target.value)}
                               className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
                             />
                           </div>
                           <div>
                             <label className="block text-slate-400 mb-1">Destino</label>
-                            <select 
-                              value={itemDestino} 
+                            <select
+                              value={itemDestino}
                               onChange={e => setItemDestino(e.target.value)}
                               className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
                             >
@@ -1297,8 +1741,8 @@
                           </div>
                         </div>
 
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={agregarItemBorrador}
                           className="w-full bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold py-1.5 rounded text-xs border border-amber-500/20"
                         >
@@ -1319,8 +1763,8 @@
                       </div>
                     )}
 
-                    <button 
-                      type="submit" 
+                    <button
+                      type="submit"
                       className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-lg text-xs uppercase tracking-wider transition"
                     >
                       🚀 Enviar Pedido a Logística con Disparo de Correo
@@ -1432,7 +1876,7 @@
                       </div>
 
                       {o.estado === 'DESPACHADO' && (
-                        <button 
+                        <button
                           onClick={() => abrirModalLiquidacion(o)}
                           className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded text-xs transition shadow-lg shadow-purple-500/10"
                         >
@@ -1447,7 +1891,7 @@
                       )}
 
                       {o.estado === 'CERRADO_CONCILIADO' && (
-                        <button 
+                        <button
                           onClick={() => exportarPdfActa(o)}
                           className="w-full bg-slate-900 hover:bg-slate-800 text-slate-300 py-1.5 rounded text-xs border border-slate-700"
                         >
@@ -1481,8 +1925,8 @@
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div>
                       <label className="block text-slate-400 mb-1">Cliente</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={oitEnEdicion.cliente}
                         onChange={e => setOitEnEdicion({ ...oitEnEdicion, cliente: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
@@ -1490,7 +1934,7 @@
                     </div>
                     <div>
                       <label className="block text-slate-400 mb-1">Tipo de Trabajo</label>
-                      <select 
+                      <select
                         value={oitEnEdicion.tipoTrabajo}
                         onChange={e => setOitEnEdicion({ ...oitEnEdicion, tipoTrabajo: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
@@ -1500,7 +1944,7 @@
                     </div>
                     <div>
                       <label className="block text-slate-400 mb-1">Técnico Ejecutante</label>
-                      <select 
+                      <select
                         value={oitEnEdicion.tecnicoId}
                         onChange={e => setOitEnEdicion({ ...oitEnEdicion, tecnicoId: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
@@ -1517,8 +1961,8 @@
                     <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
                       <div>
                         <label className="block text-slate-400 mb-0.5">Categoría</label>
-                        <select 
-                          value={editItemCat} 
+                        <select
+                          value={editItemCat}
                           onChange={e => setEditItemCat(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         >
@@ -1529,28 +1973,28 @@
                       </div>
                       <div className="sm:col-span-2">
                         <label className="block text-slate-400 mb-0.5">Descripción</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Descripción del ítem"
-                          value={editItemDesc} 
+                          value={editItemDesc}
                           onChange={e => setEditItemDesc(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         />
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-0.5">Cant.</label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          value={editItemCant} 
+                        <input
+                          type="number"
+                          min="1"
+                          value={editItemCant}
                           onChange={e => setEditItemCant(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         />
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-0.5">Destino</label>
-                        <select 
-                          value={editItemDestino} 
+                        <select
+                          value={editItemDestino}
                           onChange={e => setEditItemDestino(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         >
@@ -1559,8 +2003,8 @@
                         </select>
                       </div>
                     </div>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={agregarItemEnEdicionOit}
                       className="w-full bg-slate-800 hover:bg-slate-700 text-amber-400 py-1.5 rounded text-xs font-semibold"
                     >
@@ -1575,8 +2019,8 @@
                         <div key={it.id} className="bg-slate-900 p-2.5 rounded border border-slate-800 text-xs space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="font-mono text-amber-300 font-bold bg-slate-950 px-1.5 py-0.5 rounded">[{it.categoria}]</span>
-                            <button 
-                              type="button" 
+                            <button
+                              type="button"
                               onClick={() => eliminarItemEnEdicionOit(it.id)}
                               className="text-rose-400 hover:text-rose-300 font-semibold"
                             >
@@ -1587,8 +2031,8 @@
                           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                             <div className="sm:col-span-2">
                               <label className="text-[10px] text-slate-400 block">Descripción</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={it.descripcion}
                                 onChange={e => actualizarCampoItemEnEdicion(it.id, 'descripcion', e.target.value)}
                                 className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
@@ -1596,9 +2040,9 @@
                             </div>
                             <div>
                               <label className="text-[10px] text-slate-400 block">Cant. Solicitada</label>
-                              <input 
-                                type="number" 
-                                min="1" 
+                              <input
+                                type="number"
+                                min="1"
                                 value={it.cantidadSolicitada}
                                 onChange={e => actualizarCampoItemEnEdicion(it.id, 'cantidadSolicitada', Number(e.target.value))}
                                 className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
@@ -1606,7 +2050,7 @@
                             </div>
                             <div>
                               <label className="text-[10px] text-slate-400 block">Destino</label>
-                              <select 
+                              <select
                                 value={it.destino}
                                 onChange={e => actualizarCampoItemEnEdicion(it.id, 'destino', e.target.value)}
                                 className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
@@ -1622,13 +2066,13 @@
                   </div>
 
                   <div className="flex gap-3 pt-3 border-t border-slate-800">
-                    <button 
+                    <button
                       onClick={() => setOitEnEdicion(null)}
                       className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded text-xs font-semibold"
                     >
                       Cancelar
                     </button>
-                    <button 
+                    <button
                       onClick={guardarCambiosOit}
                       className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded text-xs"
                     >
@@ -1664,7 +2108,7 @@
                   </div>
 
                   <div className="pt-3 border-t border-slate-800 text-right">
-                    <button 
+                    <button
                       onClick={() => setOitParaAuditoria(null)}
                       className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded text-xs font-semibold"
                     >
@@ -1698,8 +2142,8 @@
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <div>
                             <label className="block text-slate-400 mb-1">Cant. Instalada (Cliente)</label>
-                            <input 
-                              type="number" 
+                            <input
+                              type="number"
                               value={it.cantidadInstalada || 0}
                               onChange={e => {
                                 const val = Number(e.target.value);
@@ -1713,8 +2157,8 @@
 
                           <div>
                             <label className="block text-slate-400 mb-1">Cant. Sobrante / Devuelta</label>
-                            <input 
-                              type="number" 
+                            <input
+                              type="number"
                               value={it.cantidadDevuelta || 0}
                               onChange={e => {
                                 const val = Number(e.target.value);
@@ -1728,7 +2172,7 @@
 
                           <div>
                             <label className="block text-slate-400 mb-1">Estado de Retorno</label>
-                            <select 
+                            <select
                               value={it.estadoRetorno || 'OPERATIVO'}
                               onChange={e => {
                                 const newItems = [...oitParaLiquidar.items];
@@ -1749,13 +2193,13 @@
                   </div>
 
                   <div className="flex gap-3 pt-3 border-t border-slate-800">
-                    <button 
+                    <button
                       onClick={() => setOitParaLiquidar(null)}
                       className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded text-xs font-semibold"
                     >
                       Cancelar
                     </button>
-                    <button 
+                    <button
                       onClick={guardarLiquidacionTecnico}
                       className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded text-xs font-bold"
                     >
@@ -1786,15 +2230,35 @@
                     <p><span className="text-slate-400">Para:</span> <b className="text-white">{notificacionEmailSimulada.para}</b></p>
                     <p><span className="text-slate-400">Con Copia (CC):</span> <b className="text-sky-400">{notificacionEmailSimulada.cc}</b></p>
                     <p><span className="text-slate-400">Asunto:</span> <b className="text-white">{notificacionEmailSimulada.asunto}</b></p>
-                    
+
                     <div className="mt-3 pt-3 border-t border-slate-800 font-sans text-slate-300 whitespace-pre-line text-[11px] bg-slate-950 p-3 rounded">
                       {notificacionEmailSimulada.mensaje}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 justify-end pt-1">
+                    {/* BOTÓN 0: WHATSAPP CON MENSAJE PRELLENADO AL DESTINATARIO PRINCIPAL */}
+                    {(() => {
+                      const celularDestino = buscarCelularPorEmail(notificacionEmailSimulada.para);
+                      const enlaceWhatsApp = celularDestino
+                        ? generarEnlaceWhatsApp(celularDestino, construirMensajeWhatsApp(notificacionEmailSimulada.asunto, notificacionEmailSimulada.mensaje))
+                        : null;
+                      return enlaceWhatsApp ? (
+                        <a
+                          href={enlaceWhatsApp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded text-xs transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/20"
+                        >
+                          📱 WhatsApp ({celularDestino})
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 self-center px-2">Sin celular registrado para WhatsApp</span>
+                      );
+                    })()}
+
                     {/* BOTÓN 1: GMAIL WEB CON CUENTA @FELOSOTEC.COM */}
-                    <a 
+                    <a
                       href={generarEnlaceGmailCorporativo(notificacionEmailSimulada.remitente, notificacionEmailSimulada.para, notificacionEmailSimulada.cc, notificacionEmailSimulada.asunto, notificacionEmailSimulada.mensaje)}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1807,14 +2271,14 @@
                     </a>
 
                     {/* BOTÓN 2: GESTOR DE CORREO LOCAL (MAILTO) */}
-                    <a 
+                    <a
                       href={`mailto:${encodeURIComponent(notificacionEmailSimulada.para)}?from=${encodeURIComponent(notificacionEmailSimulada.remitente)}&cc=${encodeURIComponent(notificacionEmailSimulada.cc)}&subject=${encodeURIComponent(notificacionEmailSimulada.asunto)}&body=${encodeURIComponent(notificacionEmailSimulada.mensaje)}`}
                       className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold px-3 py-2 rounded text-xs transition"
                     >
                       Gestor Local
                     </a>
 
-                    <button 
+                    <button
                       onClick={() => setNotificacionEmailSimulada(null)}
                       className="bg-slate-800 hover:bg-slate-700 text-slate-400 px-3 py-2 rounded text-xs"
                     >
@@ -1840,8 +2304,8 @@
                   <form onSubmit={guardarMiNuevaPassword} className="space-y-3 text-xs">
                     <div>
                       <label className="block text-slate-300 mb-1">Contraseña Actual *</label>
-                      <input 
-                        type="password" 
+                      <input
+                        type="password"
                         required
                         placeholder="••••••••"
                         value={miPassActual}
@@ -1852,8 +2316,8 @@
 
                     <div>
                       <label className="block text-slate-300 mb-1">Nueva Contraseña *</label>
-                      <input 
-                        type="password" 
+                      <input
+                        type="password"
                         required
                         placeholder="Mínimo 4 caracteres"
                         value={miPassNueva}
@@ -1864,8 +2328,8 @@
 
                     <div>
                       <label className="block text-slate-300 mb-1">Confirmar Nueva Contraseña *</label>
-                      <input 
-                        type="password" 
+                      <input
+                        type="password"
                         required
                         placeholder="Repita la nueva contraseña"
                         value={miPassConfirmar}
@@ -1875,14 +2339,14 @@
                     </div>
 
                     <div className="flex gap-2 pt-2">
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setMostrarModalCambiarMiPassword(false)}
                         className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded font-semibold"
                       >
                         Cancelar
                       </button>
-                      <button 
+                      <button
                         type="submit"
                         className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded transition shadow-md shadow-amber-500/10"
                       >
@@ -1909,8 +2373,8 @@
                   <form onSubmit={registrarTecnicoPorSupervisor} className="space-y-3 text-xs">
                     <div>
                       <label className="block text-slate-300 mb-1">Nombre Completo del Técnico *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         required
                         placeholder="Ej. SOTO HUAMAN LUIS ALBERTO"
                         value={tecNombre}
@@ -1921,8 +2385,8 @@
 
                     <div>
                       <label className="block text-slate-300 mb-1">Correo Institucional *</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         required
                         placeholder="luis.soto@felosotec.com"
                         value={tecEmail}
@@ -1933,8 +2397,8 @@
 
                     <div>
                       <label className="block text-slate-300 mb-1">Celular WhatsApp *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         required
                         placeholder="+51988776655"
                         value={tecCelular}
@@ -1944,14 +2408,14 @@
                     </div>
 
                     <div className="flex gap-2 pt-2">
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setMostrarModalCrearTecnicoSupervisor(false)}
                         className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded font-semibold"
                       >
                         Cancelar
                       </button>
-                      <button 
+                      <button
                         type="submit"
                         className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded transition"
                       >
@@ -1979,28 +2443,31 @@
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                       <div>
                         <label className="block text-slate-400 mb-1">Nombre de Usuario *</label>
-                        <input 
-                          type="text" 
-                          required 
-                          value={userUsername} 
+                        <input
+                          type="text"
+                          required
+                          value={userUsername}
                           onChange={e => setUserUsername(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-400 mb-1">Contraseña *</label>
-                        <input 
-                          type="text" 
-                          required 
-                          value={userPassword} 
+                        <label className="block text-slate-400 mb-1">
+                          {usuarioEnEdicion ? 'Nueva Contraseña' : 'Contraseña *'}
+                        </label>
+                        <input
+                          type="password"
+                          required={!usuarioEnEdicion}
+                          placeholder={usuarioEnEdicion ? 'Dejar en blanco para no cambiarla' : ''}
+                          value={userPassword}
                           onChange={e => setUserPassword(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono"
                         />
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1">Rol *</label>
-                        <select 
-                          value={userRol} 
+                        <select
+                          value={userRol}
                           onChange={e => setUserRol(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         >
@@ -2013,20 +2480,20 @@
 
                       <div className="sm:col-span-2">
                         <label className="block text-slate-400 mb-1">Nombre Completo *</label>
-                        <input 
-                          type="text" 
-                          required 
-                          value={userNombre} 
+                        <input
+                          type="text"
+                          required
+                          value={userNombre}
                           onChange={e => setUserNombre(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         />
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1">Celular *</label>
-                        <input 
-                          type="text" 
-                          required 
-                          value={userCelular} 
+                        <input
+                          type="text"
+                          required
+                          value={userCelular}
                           onChange={e => setUserCelular(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono"
                         />
@@ -2034,10 +2501,10 @@
 
                       <div className="sm:col-span-2">
                         <label className="block text-slate-400 mb-1">Correo Electrónico *</label>
-                        <input 
-                          type="email" 
-                          required 
-                          value={userEmail} 
+                        <input
+                          type="email"
+                          required
+                          value={userEmail}
                           onChange={e => setUserEmail(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         />
@@ -2046,8 +2513,8 @@
                       {userRol === 'SUPERVISOR_SOLICITANTE' && (
                         <div>
                           <label className="block text-amber-400 mb-1 font-bold">Tipo de Trabajo *</label>
-                          <select 
-                            value={userTipoTrabajo} 
+                          <select
+                            value={userTipoTrabajo}
                             onChange={e => setUserTipoTrabajo(e.target.value)}
                             className="w-full bg-slate-950 border border-amber-500/50 rounded p-1.5 text-white font-semibold"
                           >
@@ -2077,7 +2544,7 @@
                           <tr key={u.id} className="hover:bg-slate-900/50">
                             <td className="p-2 font-mono">
                               <span className="text-amber-400 font-bold">{u.username}</span>
-                              <p className="text-[10px] text-slate-500">Clave: {u.password}</p>
+                              <p className="text-[10px] text-slate-500">Clave: •••••••• (protegida)</p>
                             </td>
                             <td className="p-2">
                               <p className="font-semibold">{u.nombre}</p>
