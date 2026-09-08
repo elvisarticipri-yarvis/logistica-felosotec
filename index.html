@@ -706,6 +706,29 @@
         setUserTipoTrabajo(u.tipoTrabajo || 'Instalaciones');
       };
 
+      // --- NOTIFICACIÓN DE BIENVENIDA CON DATOS DE ACCESO (WhatsApp Web + correo) ---
+      // passwordPlano: solo se conoce justo al crear la cuenta (antes de guardarla con hash).
+      // Si es null (por ejemplo, al reenviar la bienvenida de un usuario ya existente), el
+      // mensaje avisa que la contraseña ya está protegida y hay que restablecerla si hace falta.
+      const construirMensajeBienvenidaUsuario = (usuarioObj, passwordPlano) => {
+        const lineaPassword = passwordPlano
+          ? `Contraseña: ${passwordPlano}`
+          : 'Contraseña: (ya protegida en el sistema. Si la olvidó, pida a un Administrador que se la restablezca desde "Gestión de Usuarios")';
+        const lineaTipoTrabajo = usuarioObj.rol === 'SUPERVISOR_SOLICITANTE' ? `\nTipo de Trabajo: ${usuarioObj.tipoTrabajo}` : '';
+        return `¡Hola ${usuarioObj.nombre}! Te damos la bienvenida a FELOSOTEC E.I.R.L. 👋\n\nYa tienes acceso al Dashboard de Gestión Logística (LOG_RE_03). Estos son tus datos de acceso:\n\nUsuario: ${usuarioObj.username}\n${lineaPassword}\nNombre: ${usuarioObj.nombre}\nCorreo: ${usuarioObj.email}\nCelular: ${usuarioObj.celular}\nRol: ${usuarioObj.rol}${lineaTipoTrabajo}\n\nEnlace de acceso: https://elvisarticipri-yarvis.github.io/logistica-felosotec/\n\nPor seguridad, te recomendamos cambiar tu contraseña apenas ingreses (botón "🔑 Clave" arriba a la derecha).\n\n¡Éxitos en tu trabajo!`;
+      };
+
+      const notificarBienvenidaUsuario = (usuarioObj, passwordPlano) => {
+        dispararNotificacionCorreo({
+          remitente: usuarioAutenticado.email,
+          para: usuarioObj.email,
+          cc: '',
+          asunto: `Bienvenida y Accesos - FELOSOTEC E.I.R.L. (${usuarioObj.nombre})`,
+          mensaje: construirMensajeBienvenidaUsuario(usuarioObj, passwordPlano),
+          whatsappDestinoCelular: usuarioObj.celular
+        });
+      };
+
       const guardarUsuarioAdmin = async (e) => {
         e.preventDefault();
         const esEdicion = !!usuarioEnEdicion;
@@ -756,6 +779,8 @@
           await persistirUsuarioFirestore(nuevo);
           setUsuarios([...usuarios, nuevo]);
           alert(`[${ahora}] Cuenta ${nuevo.nombre} creada.`);
+          // Notificación automática de bienvenida con los datos de acceso (WhatsApp Web + correo).
+          notificarBienvenidaUsuario(nuevo, userPassword);
         }
 
         abrirCreacionUsuarioAdmin();
@@ -939,6 +964,8 @@
         setTecCelular('');
         setMostrarModalCrearTecnicoSupervisor(false);
         alert(`[${ahora}] Técnico ${nuevoTecnico.nombre} registrado.\n\nUsuario: ${nuevoTecnico.username}\nContraseña provisional: ${passwordProvisional}\n\nComuníquele esta contraseña por un canal seguro y pídale cambiarla apenas ingrese (botón 🔑 Clave).`);
+        // Notificación automática de bienvenida con los datos de acceso (WhatsApp Web + correo).
+        notificarBienvenidaUsuario(nuevoTecnico, passwordProvisional);
       };
 
       // --- OPERACIONES OIT ---
@@ -3244,6 +3271,13 @@
                               </span>
                             </td>
                             <td className="p-2 text-right space-x-2">
+                              <button
+                                onClick={() => notificarBienvenidaUsuario(u, null)}
+                                title="Reenviar los datos de acceso por WhatsApp Web y correo"
+                                className="text-emerald-400 hover:underline"
+                              >
+                                📲 Bienvenida
+                              </button>
                               <button onClick={() => abrirEdicionUsuarioAdmin(u)} className="text-amber-400 hover:underline">Editar</button>
                               <button onClick={() => eliminarUsuarioAdmin(u.id, u.nombre)} className="text-rose-400 hover:underline">Eliminar</button>
                             </td>
