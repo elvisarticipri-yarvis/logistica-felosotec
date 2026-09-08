@@ -342,6 +342,10 @@
       const [mostrarModalCrearTecnicoSupervisor, setMostrarModalCrearTecnicoSupervisor] = useState(false);
       const [mostrarModalCambiarMiPassword, setMostrarModalCambiarMiPassword] = useState(false);
       const [usuarioEnEdicion, setUsuarioEnEdicion] = useState(null);
+
+      // Carga masiva de usuarios (Excel)
+      const cargaMasivaInputRef = useRef(null);
+      const [cargandoMasivoUsuarios, setCargandoMasivoUsuarios] = useState(false);
       const [notificacionEmailSimulada, setNotificacionEmailSimulada] = useState(null);
 
       // Cambio de contraseña propio
@@ -762,6 +766,141 @@
         if (confirm(`¿Eliminar al colaborador ${nombre}?`)) {
           await eliminarUsuarioFirestore(id);
           setUsuarios(usuarios.filter(u => u.id !== id));
+        }
+      };
+
+      // --- CARGA MASIVA DE USUARIOS (EXCEL) ---
+      const ROLES_VALIDOS_CARGA_MASIVA = ['TECNICO_EJECUTANTE', 'SUPERVISOR_SOLICITANTE', 'ADMIN_LOGISTICA', 'ADMINISTRADOR'];
+
+      const descargarPlantillaUsuarios = () => {
+        const filaEjemplo1 = {
+          "USUARIO": "jperez",
+          "CONTRASEÑA": "clave1234",
+          "NOMBRE COMPLETO": "PEREZ GOMEZ JUAN CARLOS",
+          "CORREO": "jperez@felosotec.com",
+          "CELULAR": "+51987654321",
+          "ROL (TECNICO_EJECUTANTE / SUPERVISOR_SOLICITANTE / ADMIN_LOGISTICA / ADMINISTRADOR)": "TECNICO_EJECUTANTE",
+          "TIPO DE TRABAJO (solo si el ROL es SUPERVISOR_SOLICITANTE)": ""
+        };
+        const filaEjemplo2 = {
+          "USUARIO": "msupervisor",
+          "CONTRASEÑA": "clave5678",
+          "NOMBRE COMPLETO": "SOTO RAMOS MARIA ELENA",
+          "CORREO": "msoto@felosotec.com",
+          "CELULAR": "+51988112233",
+          "ROL (TECNICO_EJECUTANTE / SUPERVISOR_SOLICITANTE / ADMIN_LOGISTICA / ADMINISTRADOR)": "SUPERVISOR_SOLICITANTE",
+          "TIPO DE TRABAJO (solo si el ROL es SUPERVISOR_SOLICITANTE)": "Instalaciones"
+        };
+
+        const ws = XLSX.utils.json_to_sheet([filaEjemplo1, filaEjemplo2]);
+        ws['!cols'] = [
+          { wch: 14 }, { wch: 14 }, { wch: 32 }, { wch: 26 }, { wch: 16 }, { wch: 58 }, { wch: 42 }
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Plantilla Usuarios");
+        XLSX.writeFile(wb, "FELOSOTEC_Plantilla_Carga_Masiva_Usuarios.xlsx");
+      };
+
+      const dispararSelectorArchivoCargaMasiva = () => {
+        if (cargaMasivaInputRef.current) cargaMasivaInputRef.current.click();
+      };
+
+      const manejarCargaMasivaUsuarios = async (e) => {
+        const archivo = e.target.files && e.target.files[0];
+        if (!archivo) return;
+        setCargandoMasivoUsuarios(true);
+
+        try {
+          const arrayBuffer = await archivo.arrayBuffer();
+          const wb = XLSX.read(arrayBuffer, { type: 'array' });
+          const primeraHoja = wb.Sheets[wb.SheetNames[0]];
+          const filas = XLSX.utils.sheet_to_json(primeraHoja, { defval: '' });
+
+          if (filas.length === 0) {
+            alert('El archivo no tiene filas de datos. Use la plantilla descargable como base.');
+            return;
+          }
+
+          // Lee un campo buscando la columna por coincidencia flexible del encabezado
+          // (para que funcione aunque el usuario simplifique o reordene los títulos de columna).
+          const obtenerCampo = (fila, posiblesNombres) => {
+            for (const clave of Object.keys(fila)) {
+              const claveNormalizada = clave.trim().toUpperCase();
+              if (posiblesNombres.some(n => claveNormalizada.startsWith(n))) {
+                return String(fila[clave] ?? '').trim();
+              }
+            }
+            return '';
+          };
+
+          const usernamesExistentes = new Set(usuarios.map(u => u.username.toLowerCase()));
+          const nuevosUsuarios = [];
+          const errores = [];
+
+          for (let i = 0; i < filas.length; i++) {
+            const fila = filas[i];
+            const numFila = i + 2; // fila 1 = encabezado
+
+            const username = obtenerCampo(fila, ['USUARIO']).toLowerCase();
+            const password = obtenerCampo(fila, ['CONTRASEÑA', 'CONTRASENA', 'PASSWORD', 'CLAVE']);
+            const nombre = obtenerCampo(fila, ['NOMBRE']);
+            const email = obtenerCampo(fila, ['CORREO', 'EMAIL']).toLowerCase();
+            const celular = obtenerCampo(fila, ['CELULAR', 'WHATSAPP', 'TELEFONO', 'TELÉFONO']);
+            const rol = obtenerCampo(fila, ['ROL']).toUpperCase();
+            const tipoTrabajo = obtenerCampo(fila, ['TIPO DE TRABAJO', 'TIPOTRABAJO']);
+
+            // Fila totalmente vacía: se ignora en silencio (no cuenta como error)
+            if (!username && !nombre && !email && !celular && !rol) continue;
+
+            if (!username || !password || !nombre || !email || !celular || !rol) {
+              errores.push(`Fila ${numFila}: faltan datos obligatorios (usuario, contraseña, nombre, correo, celular o rol).`);
+              continue;
+            }
+            if (!ROLES_VALIDOS_CARGA_MASIVA.includes(rol)) {
+              errores.push(`Fila ${numFila}: rol "${rol}" no es válido. Use uno de: ${ROLES_VALIDOS_CARGA_MASIVA.join(', ')}.`);
+              continue;
+            }
+            if (usernamesExistentes.has(username)) {
+              errores.push(`Fila ${numFila}: el usuario "${username}" ya existe y se omitió.`);
+              continue;
+            }
+
+            const passwordHasheada = firebaseHabilitado ? await generarPasswordHasheada(password) : password;
+
+            const nuevo = {
+              id: (Date.now() + i).toString(),
+              username,
+              password: passwordHasheada,
+              nombre: nombre.toUpperCase(),
+              email,
+              celular,
+              rol,
+              tipoTrabajo: rol === 'SUPERVISOR_SOLICITANTE' ? (tipoTrabajo || 'Instalaciones') : 'N/A'
+            };
+
+            usernamesExistentes.add(username);
+            nuevosUsuarios.push(nuevo);
+          }
+
+          for (const u of nuevosUsuarios) {
+            await persistirUsuarioFirestore(u);
+          }
+          if (nuevosUsuarios.length > 0) {
+            setUsuarios([...usuarios, ...nuevosUsuarios]);
+          }
+
+          let resumen = `Carga masiva completada:\n✅ ${nuevosUsuarios.length} usuario(s) creado(s).`;
+          if (errores.length > 0) {
+            resumen += `\n\n⚠️ ${errores.length} fila(s) con problemas:\n${errores.slice(0, 15).join('\n')}`;
+            if (errores.length > 15) resumen += `\n… y ${errores.length - 15} más.`;
+          }
+          alert(resumen);
+        } catch (err) {
+          console.error('Error en carga masiva de usuarios:', err);
+          alert('No se pudo procesar el archivo. Verifique que sea un Excel (.xlsx) válido basado en la plantilla descargable.');
+        } finally {
+          setCargandoMasivoUsuarios(false);
+          if (cargaMasivaInputRef.current) cargaMasivaInputRef.current.value = '';
         }
       };
 
@@ -2954,6 +3093,38 @@
                       <p className="text-xs text-slate-400">Gestor centralizado de contraseñas y colaboradores en Firestore</p>
                     </div>
                     <button onClick={() => setMostrarModalUserAdmin(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  {/* CARGA MASIVA DE USUARIOS */}
+                  <div className="bg-sky-500/5 border border-sky-500/30 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-sky-400">📤 Carga Masiva de Usuarios</p>
+                      <p className="text-[11px] text-slate-400">Descargue la plantilla, complétela y súbala para crear varias cuentas de una sola vez.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={descargarPlantillaUsuarios}
+                        className="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+                      >
+                        📥 Descargar Plantilla Excel
+                      </button>
+                      <input
+                        type="file"
+                        ref={cargaMasivaInputRef}
+                        accept=".xlsx,.xls"
+                        onChange={manejarCargaMasivaUsuarios}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={dispararSelectorArchivoCargaMasiva}
+                        disabled={cargandoMasivoUsuarios}
+                        className="bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+                      >
+                        {cargandoMasivoUsuarios ? '⏳ Procesando...' : '📤 Cargar Excel de Usuarios'}
+                      </button>
+                    </div>
                   </div>
 
                   <form onSubmit={guardarUsuarioAdmin} className="bg-slate-900 p-4 rounded-lg border border-slate-800 space-y-3">
