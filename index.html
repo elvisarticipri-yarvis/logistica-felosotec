@@ -715,7 +715,8 @@
           ? `Contraseña: ${passwordPlano}`
           : 'Contraseña: (ya protegida en el sistema. Si la olvidó, pida a un Administrador que se la restablezca desde "Gestión de Usuarios")';
         const lineaTipoTrabajo = usuarioObj.rol === 'SUPERVISOR_SOLICITANTE' ? `\nTipo de Trabajo: ${usuarioObj.tipoTrabajo}` : '';
-        return `¡Hola ${usuarioObj.nombre}! Te damos la bienvenida a FELOSOTEC E.I.R.L. 👋\n\nYa tienes acceso al Dashboard de Gestión Logística (LOG_RE_03). Estos son tus datos de acceso:\n\nUsuario: ${usuarioObj.username}\n${lineaPassword}\nNombre: ${usuarioObj.nombre}\nCorreo: ${usuarioObj.email}\nCelular: ${usuarioObj.celular}\nRol: ${usuarioObj.rol}${lineaTipoTrabajo}\n\nEnlace de acceso: https://elvisarticipri-yarvis.github.io/logistica-felosotec/\n\nPor seguridad, te recomendamos cambiar tu contraseña apenas ingreses (botón "🔑 Clave" arriba a la derecha).\n\n¡Éxitos en tu trabajo!`;
+        const enlacePlataforma = 'https://elvisarticipri-yarvis.github.io/logistica-felosotec/';
+        return `¡Hola ${usuarioObj.nombre}! Te damos la bienvenida a FELOSOTEC E.I.R.L. 👋\n\nYa tienes acceso al Dashboard de Gestión Logística (LOG_RE_03).\n\n🔗 Enlace para ingresar a la plataforma:\n${enlacePlataforma}\n\nTus datos de acceso son:\n\nUsuario: ${usuarioObj.username}\n${lineaPassword}\nNombre: ${usuarioObj.nombre}\nCorreo: ${usuarioObj.email}\nCelular: ${usuarioObj.celular}\nRol: ${usuarioObj.rol}${lineaTipoTrabajo}\n\nPor seguridad, te recomendamos cambiar tu contraseña apenas ingreses (botón "🔑 Clave" arriba a la derecha).\n\n¡Éxitos en tu trabajo!`;
       };
 
       const notificarBienvenidaUsuario = (usuarioObj, passwordPlano) => {
@@ -2894,7 +2895,9 @@
 
             {/* MODAL: VISOR DE CORREO AUTOMÁTICO (DIRECTO A GMAIL CORPORATIVO Y GESTOR LOCAL) */}
             {notificacionEmailSimulada && (
-              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setNotificacionEmailSimulada(null)}>
+              // z-[60]: por encima de cualquier otro modal (z-50) que pueda seguir abierto detrás
+              // (ej. "Gestión de Usuarios"), para que esta notificación nunca quede oculta.
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setNotificacionEmailSimulada(null)}>
                 <div className="bg-slate-950 border border-amber-500/50 rounded-xl max-w-xl w-full p-6 space-y-4 shadow-2xl" onClick={e => e.stopPropagation()}>
                   <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                     <div className="flex items-center gap-2">
