@@ -470,16 +470,16 @@
           }
         }, (err) => console.error("Error usuarios Firestore:", err));
 
+        // Ojo: a diferencia de 'usuarios', aquí NO se vuelve a sembrar
+        // ORDENES_INICIALES si la colección llega vacía. Una bandeja de
+        // órdenes vacía es un estado normal (ej. limpiaste datos de prueba),
+        // no un problema que haya que "reparar" solo. Antes, este auto-relleno
+        // hacía que una OIT eliminada (cuando era la última que quedaba)
+        // reapareciera sola al recargar la página.
         const unsubOrdenes = db.collection('ordenes_oit').onSnapshot((snap) => {
-          if (snap.empty) {
-            ORDENES_INICIALES.forEach(o => {
-              db.collection('ordenes_oit').doc(o.id).set(o);
-            });
-          } else {
-            const listO = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setOrdenes(listO);
-            localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V3', JSON.stringify(listO));
-          }
+          const listO = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setOrdenes(listO);
+          localStorage.setItem('FELOSOTEC_ORDENES_AUTH_V3', JSON.stringify(listO));
         }, (err) => console.error("Error órdenes Firestore:", err));
 
         return () => {
