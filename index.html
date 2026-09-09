@@ -962,7 +962,7 @@
           alert(resumen);
         } catch (err) {
           console.error('Error en carga masiva de usuarios:', err);
-          alert('No se pudo procesar el archivo. Verifique que sea un Excel (.xlsx) válido basado en la plantilla descargable.');
+          alert(describirErrorFirestore(err));
         } finally {
           setCargandoMasivoUsuarios(false);
           if (cargaMasivaInputRef.current) cargaMasivaInputRef.current.value = '';
@@ -997,6 +997,19 @@
         <option key={p.id} value={p.descripcion} />
       ));
 
+      // Traduce un error de Firestore a un mensaje accionable. El caso más común al
+      // recién agregar una colección nueva (como catalogo_materiales/herramientas/equipos)
+      // es que falte pegar la regla de seguridad correspondiente en Firebase Console:
+      // Firestore deniega por defecto ("permission-denied") lo que no tenga regla explícita.
+      const describirErrorFirestore = (err) => {
+        const codigo = err && err.code;
+        const mensaje = String((err && err.message) || err || '');
+        if (codigo === 'permission-denied' || /permission|insufficient permissions/i.test(mensaje)) {
+          return 'Firestore rechazó la operación por permisos (permission-denied). Es muy probable que falten las reglas de seguridad para el catálogo (colecciones catalogo_materiales, catalogo_herramientas, catalogo_equipos). Revise la sección 2 de las notas técnicas y vuelva a pegar/publicar las reglas en Firebase Console → Firestore Database → Reglas.';
+        }
+        return `Ocurrió un error inesperado: ${mensaje || codigo || 'sin detalle'}`;
+      };
+
       const agregarProductoCatalogo = async () => {
         const categoria = catalogoTabActiva;
         const descripcion = catalogoItemNuevo.trim();
@@ -1012,21 +1025,31 @@
         const nuevo = { id: Date.now().toString(), descripcion, creadoPor: usuarioAutenticado.nombre, fechaHora: formatearFechaHora() };
         const coleccion = obtenerColeccionCatalogoPorCategoria(categoria);
 
-        if (firebaseHabilitado && db) {
-          await db.collection(coleccion).doc(nuevo.id).set(nuevo);
+        try {
+          if (firebaseHabilitado && db) {
+            await db.collection(coleccion).doc(nuevo.id).set(nuevo);
+          }
+          const listaNueva = [...listaActual, nuevo].sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+          actualizarEstadoCatalogoPorCategoria(categoria, listaNueva);
+          setCatalogoItemNuevo('');
+        } catch (err) {
+          console.error('Error al agregar producto al catálogo:', err);
+          alert(describirErrorFirestore(err));
         }
-        const listaNueva = [...listaActual, nuevo].sort((a, b) => a.descripcion.localeCompare(b.descripcion));
-        actualizarEstadoCatalogoPorCategoria(categoria, listaNueva);
-        setCatalogoItemNuevo('');
       };
 
       const eliminarProductoCatalogo = async (categoria, id, descripcion) => {
         if (!confirm(`¿Eliminar "${descripcion}" del catálogo?`)) return;
         const coleccion = obtenerColeccionCatalogoPorCategoria(categoria);
-        if (firebaseHabilitado && db) {
-          await db.collection(coleccion).doc(id).delete();
+        try {
+          if (firebaseHabilitado && db) {
+            await db.collection(coleccion).doc(id).delete();
+          }
+          actualizarEstadoCatalogoPorCategoria(categoria, obtenerCatalogoPorCategoria(categoria).filter(p => p.id !== id));
+        } catch (err) {
+          console.error('Error al eliminar producto del catálogo:', err);
+          alert(describirErrorFirestore(err));
         }
-        actualizarEstadoCatalogoPorCategoria(categoria, obtenerCatalogoPorCategoria(categoria).filter(p => p.id !== id));
       };
 
       const descargarPlantillaCatalogo = (categoria) => {
@@ -1105,7 +1128,7 @@
           alert(resumen);
         } catch (err) {
           console.error('Error en carga masiva de catálogo:', err);
-          alert('No se pudo procesar el archivo. Verifique que sea un Excel (.xlsx) válido con una columna de Descripción.');
+          alert(describirErrorFirestore(err));
         } finally {
           setCargandoCatalogo(false);
           if (cargaCatalogoInputRef.current) cargaCatalogoInputRef.current.value = '';
