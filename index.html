@@ -414,6 +414,17 @@
       // Modal Conciliación (Admin/Logística)
       const [oitParaConciliar, setOitParaConciliar] = useState(null);
 
+      // Catálogo de Materiales, Herramientas y Equipos (autocompletado + carga masiva)
+      // Visible y editable por TODOS los roles, no solo Admin/Logística.
+      const [catalogoMateriales, setCatalogoMateriales] = useState([]);
+      const [catalogoHerramientas, setCatalogoHerramientas] = useState([]);
+      const [catalogoEquipos, setCatalogoEquipos] = useState([]);
+      const [mostrarModalCatalogo, setMostrarModalCatalogo] = useState(false);
+      const [catalogoTabActiva, setCatalogoTabActiva] = useState('MATERIAL');
+      const [catalogoItemNuevo, setCatalogoItemNuevo] = useState('');
+      const cargaCatalogoInputRef = useRef(null);
+      const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
+
       // Filtros y paginación de la Bandeja Global (Admin/Logística)
       const [filtroEstado, setFiltroEstado] = useState('TODOS');
       const [filtroCliente, setFiltroCliente] = useState('');
@@ -508,6 +519,34 @@
         return () => {
           unsubUsuarios();
           unsubOrdenes();
+        };
+      }, [usuarioAutenticado]);
+
+      // --- SINCRONIZACIÓN DEL CATÁLOGO (MATERIALES / HERRAMIENTAS / EQUIPOS) ---
+      // Un catálogo compartido en Firestore, visible y editable por cualquier rol una vez
+      // que inició sesión (igual que usuarios/órdenes). Se ordena en el cliente por
+      // descripción para el autocompletado.
+      useEffect(() => {
+        if (!firebaseHabilitado || !db || !usuarioAutenticado) return;
+
+        const ordenarPorDescripcion = (lista) => [...lista].sort((a, b) => (a.descripcion || '').localeCompare(b.descripcion || ''));
+
+        const unsubCatMateriales = db.collection('catalogo_materiales').onSnapshot((snap) => {
+          setCatalogoMateriales(ordenarPorDescripcion(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+        }, (err) => console.error("Error catálogo de materiales Firestore:", err));
+
+        const unsubCatHerramientas = db.collection('catalogo_herramientas').onSnapshot((snap) => {
+          setCatalogoHerramientas(ordenarPorDescripcion(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+        }, (err) => console.error("Error catálogo de herramientas Firestore:", err));
+
+        const unsubCatEquipos = db.collection('catalogo_equipos').onSnapshot((snap) => {
+          setCatalogoEquipos(ordenarPorDescripcion(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+        }, (err) => console.error("Error catálogo de equipos Firestore:", err));
+
+        return () => {
+          unsubCatMateriales();
+          unsubCatHerramientas();
+          unsubCatEquipos();
         };
       }, [usuarioAutenticado]);
 
@@ -927,6 +966,149 @@
         } finally {
           setCargandoMasivoUsuarios(false);
           if (cargaMasivaInputRef.current) cargaMasivaInputRef.current.value = '';
+        }
+      };
+
+      // --- CATÁLOGO DE MATERIALES / HERRAMIENTAS / EQUIPOS ---
+      // Disponible para cualquier rol: sirve para autocompletar "Descripción del Ítem" al
+      // crear/editar/despachar una OIT, y se mantiene con carga masiva (Excel) o altas
+      // individuales, igual que el catálogo de usuarios.
+      const obtenerCatalogoPorCategoria = (categoria) => {
+        if (categoria === 'HERRAMIENTA') return catalogoHerramientas;
+        if (categoria === 'EQUIPO') return catalogoEquipos;
+        return catalogoMateriales;
+      };
+
+      const obtenerColeccionCatalogoPorCategoria = (categoria) => {
+        if (categoria === 'HERRAMIENTA') return 'catalogo_herramientas';
+        if (categoria === 'EQUIPO') return 'catalogo_equipos';
+        return 'catalogo_materiales';
+      };
+
+      const actualizarEstadoCatalogoPorCategoria = (categoria, listaNueva) => {
+        if (categoria === 'HERRAMIENTA') setCatalogoHerramientas(listaNueva);
+        else if (categoria === 'EQUIPO') setCatalogoEquipos(listaNueva);
+        else setCatalogoMateriales(listaNueva);
+      };
+
+      // Opciones de <datalist> para el autocompletado del campo "Descripción del Ítem"
+      // (Nuevo Requerimiento del Supervisor, Añadir Ítem en Editar OIT, y Despacho).
+      const opcionesCatalogo = (categoria) => obtenerCatalogoPorCategoria(categoria).map(p => (
+        <option key={p.id} value={p.descripcion} />
+      ));
+
+      const agregarProductoCatalogo = async () => {
+        const categoria = catalogoTabActiva;
+        const descripcion = catalogoItemNuevo.trim();
+        if (!descripcion) return alert('Escriba la descripción del producto.');
+
+        const listaActual = obtenerCatalogoPorCategoria(categoria);
+        if (listaActual.some(p => p.descripcion.toLowerCase() === descripcion.toLowerCase())) {
+          alert('Ese producto ya está en el catálogo.');
+          setCatalogoItemNuevo('');
+          return;
+        }
+
+        const nuevo = { id: Date.now().toString(), descripcion, creadoPor: usuarioAutenticado.nombre, fechaHora: formatearFechaHora() };
+        const coleccion = obtenerColeccionCatalogoPorCategoria(categoria);
+
+        if (firebaseHabilitado && db) {
+          await db.collection(coleccion).doc(nuevo.id).set(nuevo);
+        }
+        const listaNueva = [...listaActual, nuevo].sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+        actualizarEstadoCatalogoPorCategoria(categoria, listaNueva);
+        setCatalogoItemNuevo('');
+      };
+
+      const eliminarProductoCatalogo = async (categoria, id, descripcion) => {
+        if (!confirm(`¿Eliminar "${descripcion}" del catálogo?`)) return;
+        const coleccion = obtenerColeccionCatalogoPorCategoria(categoria);
+        if (firebaseHabilitado && db) {
+          await db.collection(coleccion).doc(id).delete();
+        }
+        actualizarEstadoCatalogoPorCategoria(categoria, obtenerCatalogoPorCategoria(categoria).filter(p => p.id !== id));
+      };
+
+      const descargarPlantillaCatalogo = (categoria) => {
+        const etiqueta = categoria === 'MATERIAL' ? 'Materiales' : categoria === 'HERRAMIENTA' ? 'Herramientas' : 'Equipos';
+        const ejemplos = categoria === 'EQUIPO'
+          ? ['Router H3C MSR1008', 'Switch TP-Link 24 Puertos']
+          : categoria === 'HERRAMIENTA'
+          ? ['Ponchadora RJ45 AMP', 'Taladro Inalámbrico Bosch']
+          : ['Cintillos Blancos 200mm', 'Cable UTP Cat6 (metro)'];
+
+        const ws = XLSX.utils.json_to_sheet(ejemplos.map(d => ({ "DESCRIPCIÓN": d })));
+        ws['!cols'] = [{ wch: 50 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `Catalogo ${etiqueta}`);
+        XLSX.writeFile(wb, `FELOSOTEC_Plantilla_Catalogo_${etiqueta}.xlsx`);
+      };
+
+      const dispararSelectorArchivoCatalogo = () => {
+        if (cargaCatalogoInputRef.current) cargaCatalogoInputRef.current.click();
+      };
+
+      const manejarCargaMasivaCatalogo = async (e) => {
+        const archivo = e.target.files && e.target.files[0];
+        if (!archivo) return;
+        const categoria = catalogoTabActiva;
+        setCargandoCatalogo(true);
+
+        try {
+          const arrayBuffer = await archivo.arrayBuffer();
+          const wb = XLSX.read(arrayBuffer, { type: 'array' });
+          const primeraHoja = wb.Sheets[wb.SheetNames[0]];
+          const filas = XLSX.utils.sheet_to_json(primeraHoja, { defval: '' });
+
+          if (filas.length === 0) {
+            alert('El archivo no tiene filas de datos. Use la plantilla descargable como base.');
+            return;
+          }
+
+          const obtenerCampo = (fila, posiblesNombres) => {
+            for (const clave of Object.keys(fila)) {
+              const claveNormalizada = clave.trim().toUpperCase();
+              if (posiblesNombres.some(n => claveNormalizada.startsWith(n))) {
+                return String(fila[clave] ?? '').trim();
+              }
+            }
+            return '';
+          };
+
+          const listaActual = obtenerCatalogoPorCategoria(categoria);
+          const descripcionesExistentes = new Set(listaActual.map(p => p.descripcion.toLowerCase()));
+          const coleccion = obtenerColeccionCatalogoPorCategoria(categoria);
+          const nuevosProductos = [];
+          let omitidosVacioORepetido = 0;
+
+          for (let i = 0; i < filas.length; i++) {
+            const descripcion = obtenerCampo(filas[i], ['DESCRIPCIÓN', 'DESCRIPCION', 'PRODUCTO', 'ITEM', 'ÍTEM']);
+            if (!descripcion) continue;
+            if (descripcionesExistentes.has(descripcion.toLowerCase())) { omitidosVacioORepetido++; continue; }
+
+            const nuevo = { id: (Date.now() + i).toString(), descripcion, creadoPor: usuarioAutenticado.nombre, fechaHora: formatearFechaHora() };
+            descripcionesExistentes.add(descripcion.toLowerCase());
+            nuevosProductos.push(nuevo);
+          }
+
+          for (const p of nuevosProductos) {
+            if (firebaseHabilitado && db) await db.collection(coleccion).doc(p.id).set(p);
+          }
+
+          if (nuevosProductos.length > 0) {
+            const listaNueva = [...listaActual, ...nuevosProductos].sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+            actualizarEstadoCatalogoPorCategoria(categoria, listaNueva);
+          }
+
+          let resumen = `Carga masiva completada:\n✅ ${nuevosProductos.length} producto(s) agregado(s).`;
+          if (omitidosVacioORepetido > 0) resumen += `\n⚠️ ${omitidosVacioORepetido} fila(s) omitida(s) por estar repetidas o vacías.`;
+          alert(resumen);
+        } catch (err) {
+          console.error('Error en carga masiva de catálogo:', err);
+          alert('No se pudo procesar el archivo. Verifique que sea un Excel (.xlsx) válido con una columna de Descripción.');
+        } finally {
+          setCargandoCatalogo(false);
+          if (cargaCatalogoInputRef.current) cargaCatalogoInputRef.current.value = '';
         }
       };
 
@@ -1613,6 +1795,15 @@
                 </div>
               </div>
 
+              {/* CATÁLOGO DE MATERIALES/HERRAMIENTAS/EQUIPOS: visible para todos los roles */}
+              <button
+                onClick={() => setMostrarModalCatalogo(true)}
+                title="Ver y administrar el catálogo de Materiales, Herramientas y Equipos"
+                className="bg-slate-800 hover:bg-slate-700 text-sky-400 px-3 py-1.5 rounded-lg font-bold transition text-xs border border-sky-500/30 flex items-center gap-1.5"
+              >
+                📚 Catálogo
+              </button>
+
               {/* GESTOR DE CONTRASEÑA (resaltado para que sea fácil de encontrar) */}
               <button
                 onClick={() => setMostrarModalCambiarMiPassword(true)}
@@ -2027,11 +2218,13 @@
                             <label className="block text-slate-400 mb-1">Descripción del Ítem</label>
                             <input
                               type="text"
+                              list="datalist-catalogo-form"
                               placeholder={tabActiva === 'EQUIPO' ? 'Router H3C MSR1008' : tabActiva === 'HERRAMIENTA' ? 'Ponchadora RJ45 AMP' : 'Cintillos Blancos 200mm'}
                               value={itemDesc}
                               onChange={e => setItemDesc(e.target.value)}
                               className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
                             />
+                            <datalist id="datalist-catalogo-form">{opcionesCatalogo(tabActiva)}</datalist>
                           </div>
                           {tabActiva !== 'MATERIAL' && (
                             <div>
@@ -2311,11 +2504,13 @@
                         <label className="block text-slate-400 mb-0.5">Descripción</label>
                         <input
                           type="text"
+                          list="datalist-catalogo-editoit"
                           placeholder="Descripción del ítem"
                           value={editItemDesc}
                           onChange={e => setEditItemDesc(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                         />
+                        <datalist id="datalist-catalogo-editoit">{opcionesCatalogo(editItemCat)}</datalist>
                       </div>
                       {editItemCat !== 'MATERIAL' && (
                         <div>
@@ -2691,11 +2886,13 @@
                           <label className="block text-slate-400 mb-1">Descripción del Ítem</label>
                           <input
                             type="text"
+                            list="datalist-catalogo-despacho"
                             placeholder={despachoTabActiva === 'EQUIPO' ? 'Router H3C MSR1008' : despachoTabActiva === 'HERRAMIENTA' ? 'Ponchadora RJ45 AMP' : 'Cintillos Blancos 200mm'}
                             value={despachoItemDesc}
                             onChange={e => setDespachoItemDesc(e.target.value)}
                             className="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white"
                           />
+                          <datalist id="datalist-catalogo-despacho">{opcionesCatalogo(despachoTabActiva)}</datalist>
                         </div>
                         {despachoTabActiva !== 'MATERIAL' && (
                           <div>
@@ -3040,6 +3237,102 @@
                       </button>
                     </div>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: CATÁLOGO DE MATERIALES / HERRAMIENTAS / EQUIPOS (visible para todos los roles) */}
+            {mostrarModalCatalogo && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setMostrarModalCatalogo(false)}>
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">📚 Catálogo de Materiales, Herramientas y Equipos</h3>
+                      <p className="text-xs text-slate-400">Compartido entre todos los usuarios. Sirve para autocompletar la "Descripción del Ítem" al crear o editar una OIT.</p>
+                    </div>
+                    <button onClick={() => setMostrarModalCatalogo(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {(['MATERIAL', 'HERRAMIENTA', 'EQUIPO']).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setCatalogoTabActiva(cat)}
+                        className={`flex-1 py-1.5 rounded text-xs font-bold border transition ${catalogoTabActiva === cat ? 'bg-slate-800 border-sky-500 text-sky-400' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                      >
+                        {cat === 'MATERIAL' ? '1. Materiales' : cat === 'HERRAMIENTA' ? '2. Herramientas' : '3. Equipos'}
+                        {' '}({obtenerCatalogoPorCategoria(cat).length})
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="bg-sky-500/5 border border-sky-500/30 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-sky-400">Carga masiva</p>
+                      <p className="text-[11px] text-slate-400">Descargue la plantilla, complétela con una fila por producto y súbala.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => descargarPlantillaCatalogo(catalogoTabActiva)}
+                        className="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 px-3 py-2 rounded-lg text-xs font-semibold transition"
+                      >
+                        📥 Descargar Plantilla
+                      </button>
+                      <input
+                        type="file"
+                        ref={cargaCatalogoInputRef}
+                        accept=".xlsx,.xls"
+                        onChange={manejarCargaMasivaCatalogo}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={dispararSelectorArchivoCatalogo}
+                        disabled={cargandoCatalogo}
+                        className="bg-sky-600 hover:bg-sky-500 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-xs font-bold transition"
+                      >
+                        {cargandoCatalogo ? '⏳ Procesando...' : '📤 Cargar Excel'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 text-xs">
+                    <input
+                      type="text"
+                      placeholder={`Añadir un ${catalogoTabActiva === 'EQUIPO' ? 'equipo' : catalogoTabActiva === 'HERRAMIENTA' ? 'herramienta' : 'material'} nuevo...`}
+                      value={catalogoItemNuevo}
+                      onChange={e => setCatalogoItemNuevo(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); agregarProductoCatalogo(); } }}
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={agregarProductoCatalogo}
+                      className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/20 px-3 py-2 rounded font-semibold"
+                    >
+                      + Agregar
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                    {obtenerCatalogoPorCategoria(catalogoTabActiva).map(p => (
+                      <div key={p.id} className="flex justify-between items-center bg-slate-900 p-2 rounded text-xs border border-slate-800">
+                        <span className="text-slate-200">{p.descripcion}</span>
+                        <button
+                          type="button"
+                          onClick={() => eliminarProductoCatalogo(catalogoTabActiva, p.id, p.descripcion)}
+                          className="text-rose-400 hover:underline"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    ))}
+                    {obtenerCatalogoPorCategoria(catalogoTabActiva).length === 0 && (
+                      <p className="text-center text-slate-500 text-xs py-6">Todavía no hay productos en esta categoría. Agregue uno arriba o cargue un Excel.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
