@@ -414,6 +414,13 @@
       // Modal Conciliación (Admin/Logística)
       const [oitParaConciliar, setOitParaConciliar] = useState(null);
 
+      // Equipo de Baja (dentro del modal de Conciliación, lo llena Admin/Logística)
+      const [ebDescripcion, setEbDescripcion] = useState('');
+      const [ebCodigo, setEbCodigo] = useState('');
+      const [ebCantidad, setEbCantidad] = useState(1);
+      const [ebDeDonde, setEbDeDonde] = useState('NODO');
+      const [ebEstado, setEbEstado] = useState('OPERATIVO');
+
       // Catálogo de Materiales, Herramientas y Equipos (autocompletado + carga masiva)
       // Visible y editable por TODOS los roles, no solo Admin/Logística.
       const [catalogoMateriales, setCatalogoMateriales] = useState([]);
@@ -1520,7 +1527,50 @@
 
       // --- MODAL DE CONCILIACIÓN (Admin/Logística) ---
       const abrirModalConciliar = (ord) => {
-        setOitParaConciliar(JSON.parse(JSON.stringify(ord)));
+        const clon = JSON.parse(JSON.stringify(ord));
+        if (!clon.equiposBaja) clon.equiposBaja = [];
+        setEbDescripcion('');
+        setEbCodigo('');
+        setEbCantidad(1);
+        setEbDeDonde('NODO');
+        setEbEstado('OPERATIVO');
+        setOitParaConciliar(clon);
+      };
+
+      // Permite a Admin/Logística corregir, dentro de la Conciliación, los valores que
+      // declaró el técnico en su Liquidación (cantidad instalada, sobrante/devuelta y
+      // estado de retorno), por si hubo un error al llenarlos en campo.
+      const actualizarCampoItemConciliar = (idx, campo, valor) => {
+        const newItems = [...oitParaConciliar.items];
+        newItems[idx] = { ...newItems[idx], [campo]: valor };
+        setOitParaConciliar({ ...oitParaConciliar, items: newItems });
+      };
+
+      // --- EQUIPO DE BAJA (dentro de Conciliación) ---
+      const agregarEquipoBaja = () => {
+        if (!ebDescripcion.trim()) return alert('Ingrese la descripción del equipo de baja');
+        const nuevo = {
+          id: Date.now().toString(),
+          descripcion: ebDescripcion,
+          codigo: ebCodigo,
+          cantidad: Number(ebCantidad) || 1,
+          deDonde: ebDeDonde,
+          estado: ebEstado
+        };
+        setOitParaConciliar({
+          ...oitParaConciliar,
+          equiposBaja: [...(oitParaConciliar.equiposBaja || []), nuevo]
+        });
+        setEbDescripcion('');
+        setEbCodigo('');
+        setEbCantidad(1);
+      };
+
+      const eliminarEquipoBaja = (id) => {
+        setOitParaConciliar({
+          ...oitParaConciliar,
+          equiposBaja: (oitParaConciliar.equiposBaja || []).filter(e => e.id !== id)
+        });
       };
 
       const confirmarConciliacion = async () => {
@@ -1545,7 +1595,11 @@
         const tecnicoDestObj = usuarios.find(u => u.id === ordenActualizada.tecnicoId);
         const celularTecnico = tecnicoDestObj ? tecnicoDestObj.celular : buscarCelularPorEmail(ordenActualizada.tecnicoEmail);
 
-        const mensajeCompleto = `Estimados,\n\nSe informa la FINALIZACIÓN DEL TRABAJO correspondiente a la OIT/TK ${ordenActualizada.codigoOit} (${ordenActualizada.cliente}).\n\nTodos los materiales y equipos fueron COTEJADOS satisfactoriamente en almacén y se finalizó la devolución y conciliación formal bajo el formato LOG_RE_03 v03.\n\n- Responsable de Conciliación: ${responsableNombre}\n- Fecha de Cierre: ${ahora}\n\nLa orden queda archivada y cerrada en el sistema.`;
+        const equiposBajaTexto = (ordenActualizada.equiposBaja && ordenActualizada.equiposBaja.length)
+          ? `\n\nEQUIPOS DE BAJA (registrados en conciliación):\n${ordenActualizada.equiposBaja.map(e => `• ${e.descripcion} | Código/Serie: ${e.codigo || 'N/A'} | Cant: ${e.cantidad} | De: ${e.deDonde} | Estado: ${e.estado}`).join('\n')}`
+          : '';
+
+        const mensajeCompleto = `Estimados,\n\nSe informa la FINALIZACIÓN DEL TRABAJO correspondiente a la OIT/TK ${ordenActualizada.codigoOit} (${ordenActualizada.cliente}).\n\nTodos los materiales y equipos fueron COTEJADOS satisfactoriamente en almacén y se finalizó la devolución y conciliación formal bajo el formato LOG_RE_03 v03.\n\n- Responsable de Conciliación: ${responsableNombre}\n- Fecha de Cierre: ${ahora}${equiposBajaTexto}\n\nLa orden queda archivada y cerrada en el sistema.`;
 
         // WhatsApp slim (sin materiales) al TÉCNICO; el correo mantiene además copia
         // a Supervisor, Técnico y a las dos cuentas fijas de Logística.
@@ -3069,22 +3123,69 @@
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-300">Detalle de Liquidación:</p>
-                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                      {oitParaConciliar.items?.map((it, idx) => (
-                        <div key={idx} className="bg-slate-900 p-2 rounded border border-slate-800 text-[11px] flex flex-wrap justify-between gap-1">
-                          <span><b className="text-amber-400">[{it.categoria}]</b> {it.descripcion}</span>
-                          <span className="text-slate-400">
-                            Solicitado: {it.cantidadSolicitada} {it.unidad} | Instalado: {it.cantidadInstalada || 0} | Devuelto: {it.cantidadDevuelta || 0} | {it.estadoRetorno || 'N/A'}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-slate-300">Detalle de Liquidación:</p>
+                      <p className="text-[10px] text-slate-500">
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm bg-yellow-500/40 border border-yellow-500 align-middle mr-1"></span>Devuelto en 0
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-500 align-middle mr-1 ml-3"></span>Con devolución
+                      </p>
+                    </div>
+                    {/* Editable por Admin/Logística: si el técnico se equivocó al llenar la Liquidación
+                        de Campo (Instalado/Devuelto/Estado), se puede corregir aquí antes de conciliar. */}
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                      {oitParaConciliar.items?.map((it, idx) => {
+                        const tieneDevuelto = Number(it.cantidadDevuelta) > 0;
+                        const colorFila = tieneDevuelto
+                          ? 'bg-emerald-500/10 border-emerald-500/40'
+                          : 'bg-yellow-500/10 border-yellow-500/40';
+                        return (
+                          <div key={idx} className={`p-2.5 rounded border text-[11px] space-y-2 ${colorFila}`}>
+                            <div className="flex justify-between items-center">
+                              <span><b className="text-amber-400">[{it.categoria}]</b> {it.descripcion}</span>
+                              <span className="text-slate-400">Solicitado: {it.cantidadSolicitada} {it.unidad}</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div>
+                                <label className="text-[10px] text-slate-400 block">Cant. Instalada</label>
+                                <input
+                                  type="number"
+                                  value={it.cantidadInstalada || 0}
+                                  onChange={e => actualizarCampoItemConciliar(idx, 'cantidadInstalada', Number(e.target.value))}
+                                  className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-slate-400 block">Cant. Sobrante / Devuelta</label>
+                                <input
+                                  type="number"
+                                  value={it.cantidadDevuelta || 0}
+                                  onChange={e => actualizarCampoItemConciliar(idx, 'cantidadDevuelta', Number(e.target.value))}
+                                  className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-slate-400 block">Estado de Retorno</label>
+                                <select
+                                  value={it.estadoRetorno || 'OPERATIVO'}
+                                  onChange={e => actualizarCampoItemConciliar(idx, 'estadoRetorno', e.target.value)}
+                                  className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                                >
+                                  <option value="OPERATIVO">OPERATIVO</option>
+                                  <option value="DANADO">DAÑADO</option>
+                                  <option value="EXTRAVIADO">EXTRAVIADO</option>
+                                  <option value="N/A">N/A</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
                   {(oitParaConciliar.equiposDesinstalados && oitParaConciliar.equiposDesinstalados.length > 0) && (
                     <div className="space-y-2">
-                      <p className="text-xs font-bold text-rose-400">Equipos Desinstalados:</p>
+                      <p className="text-xs font-bold text-rose-400">Equipos Desinstalados (declarados por el técnico):</p>
                       <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                         {oitParaConciliar.equiposDesinstalados.map(eq => (
                           <div key={eq.id} className="bg-slate-900 p-2 rounded border border-rose-900/50 text-[11px]">
@@ -3094,6 +3195,92 @@
                       </div>
                     </div>
                   )}
+
+                  {/* EQUIPO DE BAJA (lo registra Admin/Logística durante la conciliación) */}
+                  <div className="border-2 border-rose-600 rounded-lg p-3 space-y-3 bg-rose-950/20">
+                    <p className="text-sm font-extrabold text-rose-500">⚠️ Equipo de Baja</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-400 mb-0.5">Descripción</label>
+                        <input
+                          type="text"
+                          list="datalist-catalogo-equipobaja"
+                          placeholder="Ej. Router H3C MSR1008"
+                          value={ebDescripcion}
+                          onChange={e => setEbDescripcion(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                        <datalist id="datalist-catalogo-equipobaja">{opcionesCatalogo('EQUIPO')}</datalist>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Código y/o Serie</label>
+                        <input
+                          type="text"
+                          placeholder="Ej. H3C-99281"
+                          value={ebCodigo}
+                          onChange={e => setEbCodigo(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Cant.</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={ebCantidad}
+                          onChange={e => setEbCantidad(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">De Donde</label>
+                        <select
+                          value={ebDeDonde}
+                          onChange={e => setEbDeDonde(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        >
+                          <option value="NODO">NODO</option>
+                          <option value="CLIENTE">CLIENTE</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                      <div className="sm:col-span-4">
+                        <label className="block text-slate-400 mb-0.5">Estado</label>
+                        <select
+                          value={ebEstado}
+                          onChange={e => setEbEstado(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        >
+                          <option value="OPERATIVO">OPERATIVO</option>
+                          <option value="AVERIADO">AVERIADO</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={agregarEquipoBaja}
+                      className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-1.5 rounded text-xs"
+                    >
+                      + Añadir Equipo de Baja
+                    </button>
+
+                    {(oitParaConciliar.equiposBaja || []).length > 0 && (
+                      <div className="space-y-1.5">
+                        {oitParaConciliar.equiposBaja.map(eq => (
+                          <div key={eq.id} className="flex justify-between items-center bg-slate-900 p-2 rounded text-xs border border-rose-900/50">
+                            <span>
+                              <b>{eq.descripcion}</b> {eq.codigo ? `(Cód/Serie: ${eq.codigo})` : ''} — Cant: {eq.cantidad} — {eq.deDonde} — <span className={eq.estado === 'AVERIADO' ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>{eq.estado}</span>
+                            </span>
+                            <button type="button" onClick={() => eliminarEquipoBaja(eq.id)} className="text-rose-400 hover:underline">Eliminar</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <div className="flex gap-3 pt-3 border-t border-slate-800">
                     <button
