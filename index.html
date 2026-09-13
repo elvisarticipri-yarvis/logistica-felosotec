@@ -337,6 +337,42 @@
       });
 
       // Modales
+      // Mide la altura real del <header> para que el resumen/accesos rápidos de
+      // Admin/Logística quede pegado (sticky) justo debajo, sin taparlo, aunque
+      // el header cambie de alto (por ejemplo, al hacer wrap en pantallas angostas).
+      const headerRef = useRef(null);
+      const [alturaHeader, setAlturaHeader] = useState(80);
+      useEffect(() => {
+        if (!headerRef.current) return;
+        const medir = () => setAlturaHeader(headerRef.current.offsetHeight);
+        medir();
+        const observer = new ResizeObserver(medir);
+        observer.observe(headerRef.current);
+        window.addEventListener('resize', medir);
+        return () => {
+          observer.disconnect();
+          window.removeEventListener('resize', medir);
+        };
+      }, []);
+
+      // Igual que arriba, pero para el bloque de resumen (tarjetas + accesos rápidos)
+      // de Admin/Logística, así el título + filtros de la Bandeja Global quedan
+      // pegados justo debajo de ese bloque, sin taparlo.
+      const resumenRef = useRef(null);
+      const [alturaResumen, setAlturaResumen] = useState(0);
+      useEffect(() => {
+        if (!resumenRef.current) return;
+        const medir = () => setAlturaResumen(resumenRef.current.offsetHeight);
+        medir();
+        const observer = new ResizeObserver(medir);
+        observer.observe(resumenRef.current);
+        window.addEventListener('resize', medir);
+        return () => {
+          observer.disconnect();
+          window.removeEventListener('resize', medir);
+        };
+      }, []);
+
       const [mostrarReportes, setMostrarReportes] = useState(false);
       const [mostrarModalUserAdmin, setMostrarModalUserAdmin] = useState(false);
       const [mostrarModalCrearTecnicoSupervisor, setMostrarModalCrearTecnicoSupervisor] = useState(false);
@@ -381,7 +417,7 @@
 
       // Form Solicitud Supervisor
       const [codigoOit, setCodigoOit] = useState('');
-      const [cliente, setCliente] = useState('SUPERMERCADOS PERUANOS S.P.S.A.');
+      const [cliente, setCliente] = useState('');
       const [tecnicoAsignadoId, setTecnicoAsignadoId] = useState('');
       const [tabActiva, setTabActiva] = useState('MATERIAL');
       const [itemsBorrador, setItemsBorrador] = useState([]);
@@ -460,7 +496,15 @@
 
       // Las OITs ya conciliadas (CERRADO_CONCILIADO) se archivan aparte, en la ventana
       // "🗂️ OITs Conciliadas", para que la Bandeja Global quede solo con trabajo activo.
-      const ordenesConciliadas = ordenes.filter(o => o.estado === 'CERRADO_CONCILIADO');
+      // Para todos los roles: cada uno ve, en su propia ventana "OITs Conciliadas",
+      // solo las conciliadas que le corresponden (Admin/Logística las ve todas).
+      const ordenesConciliadas = ordenes.filter(o => {
+        if (o.estado !== 'CERRADO_CONCILIADO') return false;
+        if (!usuarioAutenticado) return false;
+        if (usuarioAutenticado.rol === 'SUPERVISOR_SOLICITANTE') return o.tipoTrabajo === usuarioAutenticado.tipoTrabajo;
+        if (usuarioAutenticado.rol === 'TECNICO_EJECUTANTE') return o.tecnicoId === usuarioAutenticado.id;
+        return true;
+      });
       const ordenesConciliadasFiltradas = ordenesConciliadas.filter(o => {
         if (!buscarConciliados.trim()) return true;
         const texto = buscarConciliados.trim().toLowerCase();
@@ -1257,6 +1301,7 @@
         setOrdenes([nuevaOrden, ...ordenes]);
         setItemsBorrador([]);
         setCodigoOit('');
+        setCliente('');
 
         const asuntoCorreo = `Solicitud de Equipos y/o Materiales (${nuevaOrden.codigoOit} y ${nuevaOrden.cliente})`;
         const cuerpoCorreo = `Estimada Área de Logística,\n\nSe ha generado un nuevo requerimiento de despacho:\n- OIT / TK: ${nuevaOrden.codigoOit}\n- Cliente: ${nuevaOrden.cliente}\n- Tipo de Trabajo: ${nuevaOrden.tipoTrabajo}\n- Supervisor Solicitante: ${nuevaOrden.supervisorNombre} (${nuevaOrden.supervisorEmail})\n- Técnico Asignado: ${nuevaOrden.tecnicoNombre} (${nuevaOrden.tecnicoEmail})\n\nÍTEMS SOLICITADOS:\n${nuevaOrden.items.map(i => `• [${i.categoria}] ${i.descripcion} | Cant: ${i.cantidadSolicitada} ${i.unidad} | Destino: ${i.destino}`).join('\n')}\n\nFavor de proceder con la validación y despacho correspondiente.`;
@@ -1865,7 +1910,7 @@
       return (
         <div className="min-h-screen pb-12">
           {/* HEADER */}
-          <header className="bg-slate-950 border-b border-slate-800 px-6 py-4 sticky top-0 z-30 flex flex-wrap justify-between items-center gap-4">
+          <header ref={headerRef} className="bg-slate-950 border-b border-slate-800 px-6 py-4 sticky top-0 z-30 flex flex-wrap justify-between items-center gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <span className="bg-amber-500 text-slate-950 font-extrabold px-2 py-0.5 rounded text-xs">LOG_RE_03 v03</span>
@@ -1921,82 +1966,95 @@
             {(rol === 'ADMINISTRADOR' || rol === 'ADMIN_LOGISTICA') && (
               <div className="space-y-6">
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-xl shadow-lg">
-                    <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🟡 Solicitado</span>
-                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'SOLICITADO').length}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Por Despachar</p>
+                {/* BLOQUE FIJO AL HACER SCROLL: resumen + accesos rápidos. Queda pegado
+                    justo debajo del header (altura medida dinámicamente) para que, al
+                    desplazarse por la Bandeja Global, esta información no se pierda de vista. */}
+                <div
+                  ref={resumenRef}
+                  className="sticky z-20 bg-slate-900 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-4 space-y-4 border-b border-slate-800/70"
+                  style={{ top: alturaHeader }}
+                >
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-xl shadow-lg">
+                      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">🟡 Solicitado</span>
+                      <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'SOLICITADO').length}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Por Despachar</p>
+                    </div>
+
+                    <div className="bg-slate-950 border border-sky-500/30 p-4 rounded-xl shadow-lg">
+                      <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">🔵 Despachado</span>
+                      <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'DESPACHADO').length}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">En Tránsito / Campo</p>
+                    </div>
+
+                    <div className="bg-slate-950 border border-purple-500/30 p-4 rounded-xl shadow-lg">
+                      <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🟣 Por Conciliar</span>
+                      <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'TRABAJO_FINALIZADO').length}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Trabajo Terminado</p>
+                    </div>
+
+                    <div className="bg-slate-950 border border-orange-500/30 p-4 rounded-xl shadow-lg">
+                      <span className="text-xs font-semibold text-orange-400 uppercase tracking-wider">🟠 Pendientes</span>
+                      <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'PENDIENTE').length}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">En Espera Supervisor</p>
+                    </div>
+
+                    <div className="bg-slate-950 border border-emerald-500/30 p-4 rounded-xl shadow-lg">
+                      <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">🟢 Conciliado</span>
+                      <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'CERRADO_CONCILIADO').length}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Finalizado y Cerrado</p>
+                    </div>
                   </div>
 
-                  <div className="bg-slate-950 border border-sky-500/30 p-4 rounded-xl shadow-lg">
-                    <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">🔵 Despachado</span>
-                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'DESPACHADO').length}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">En Tránsito / Campo</p>
-                  </div>
-
-                  <div className="bg-slate-950 border border-purple-500/30 p-4 rounded-xl shadow-lg">
-                    <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🟣 Por Conciliar</span>
-                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'TRABAJO_FINALIZADO').length}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Trabajo Terminado</p>
-                  </div>
-
-                  <div className="bg-slate-950 border border-orange-500/30 p-4 rounded-xl shadow-lg">
-                    <span className="text-xs font-semibold text-orange-400 uppercase tracking-wider">🟠 Pendientes</span>
-                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'PENDIENTE').length}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">En Espera Supervisor</p>
-                  </div>
-
-                  <div className="bg-slate-950 border border-emerald-500/30 p-4 rounded-xl shadow-lg">
-                    <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">🟢 Conciliado</span>
-                    <p className="text-3xl font-extrabold text-white mt-1">{ordenes.filter(o => o.estado === 'CERRADO_CONCILIADO').length}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Finalizado y Cerrado</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  {rol === 'ADMINISTRADOR' && (
+                  <div className="flex flex-wrap gap-3">
+                    {rol === 'ADMINISTRADOR' && (
+                      <button
+                        onClick={() => { setMostrarModalUserAdmin(true); abrirCreacionUsuarioAdmin(); }}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                      >
+                        👑 Gestión de Usuarios y Claves ({usuarios.length})
+                      </button>
+                    )}
                     <button
-                      onClick={() => { setMostrarModalUserAdmin(true); abrirCreacionUsuarioAdmin(); }}
-                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                      onClick={exportarExcel}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
                     >
-                      👑 Gestión de Usuarios y Claves ({usuarios.length})
+                      📊 Descargar Sábana Excel LOG_RE_03
                     </button>
-                  )}
-                  <button
-                    onClick={exportarExcel}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
-                  >
-                    📊 Descargar Sábana Excel LOG_RE_03
-                  </button>
-                  <button
-                    onClick={() => setMostrarReportes(v => !v)}
-                    className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
-                  >
-                    📈 {mostrarReportes ? 'Ocultar Reportes' : 'Ver Reportes y Estadísticas'}
-                  </button>
-                  <button
-                    onClick={() => setMostrarModalConciliados(true)}
-                    className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
-                  >
-                    🗂️ OITs Conciliadas ({ordenesConciliadas.length})
-                  </button>
+                    <button
+                      onClick={() => setMostrarReportes(v => !v)}
+                      className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                    >
+                      📈 {mostrarReportes ? 'Ocultar Reportes' : 'Ver Reportes y Estadísticas'}
+                    </button>
+                    <button
+                      onClick={() => setMostrarModalConciliados(true)}
+                      className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                    >
+                      🗂️ OITs Conciliadas ({ordenesConciliadas.length})
+                    </button>
+                  </div>
                 </div>
 
                 {mostrarReportes && <PanelReportes ordenes={ordenes} />}
 
                 <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
-                  <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-                    <div>
-                      <h2 className="text-sm font-bold text-white">Bandeja Global de Requerimientos OIT / TK</h2>
-                      <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación sincronizada. Las OITs ya conciliadas se archivan en "🗂️ OITs Conciliadas".</p>
+                  {/* Título + filtros también quedan fijos al desplazarse, justo debajo
+                      del bloque de resumen (altura medida dinámicamente); solo las filas
+                      de la tabla se desplazan por debajo de todo esto. */}
+                  <div className="sticky z-10 bg-slate-950" style={{ top: alturaHeader + alturaResumen }}>
+                    <div className="p-4 border-b border-slate-800 flex justify-between items-center">
+                      <div>
+                        <h2 className="text-sm font-bold text-white">Bandeja Global de Requerimientos OIT / TK</h2>
+                        <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación sincronizada. Las OITs ya conciliadas se archivan en "🗂️ OITs Conciliadas".</p>
+                      </div>
+                      <span className="text-xs text-slate-400">
+                        {ordenesFiltradas.length} de {ordenes.length} órdenes {ordenesFiltradas.length !== ordenes.length ? '(filtradas)' : 'en la nube'}
+                      </span>
                     </div>
-                    <span className="text-xs text-slate-400">
-                      {ordenesFiltradas.length} de {ordenes.length} órdenes {ordenesFiltradas.length !== ordenes.length ? '(filtradas)' : 'en la nube'}
-                    </span>
-                  </div>
 
-                  {/* FILTROS Y BÚSQUEDA */}
-                  <div className="p-4 border-b border-slate-800 bg-slate-900/40 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                    {/* FILTROS Y BÚSQUEDA */}
+                    <div className="p-4 border-b border-slate-800 bg-slate-900/40 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
                     <div>
                       <label className="block text-slate-500 mb-1">Estado</label>
                       <select
@@ -2067,24 +2125,25 @@
                         ✕
                       </button>
                     </div>
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-900 text-slate-400 uppercase font-mono text-[11px]">
                         <tr>
-                          <th className="p-3">OIT / TK</th>
-                          <th className="p-3">Cliente & Tipo Trabajo</th>
-                          <th className="p-3">Personal & Despacho</th>
-                          <th className="p-3">Ítems en esta OIT</th>
-                          <th className="p-3">Estado</th>
-                          <th className="p-3 text-right">Acciones</th>
+                          <th className="p-4">OIT / TK</th>
+                          <th className="p-4">Cliente & Tipo Trabajo</th>
+                          <th className="p-4">Personal & Despacho</th>
+                          <th className="p-4">Ítems en esta OIT</th>
+                          <th className="p-4">Estado</th>
+                          <th className="p-4 text-right">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800 text-slate-300">
                         {ordenesPaginadas.map(ord => (
-                          <tr key={ord.id} className="hover:bg-slate-900/40">
-                            <td className="p-3 font-mono font-bold text-amber-400">
+                          <tr key={ord.id} className="hover:bg-slate-900/40 align-top">
+                            <td className="p-4 font-mono font-bold text-amber-400">
                               {ord.codigoOit}
                               <p className="text-[10px] text-slate-500 font-normal">{ord.fechaSolicitud}</p>
                               <button
@@ -2102,13 +2161,13 @@
                                 ) : null;
                               })()}
                             </td>
-                            <td className="p-3">
+                            <td className="p-4">
                               <p className="font-semibold text-white">{ord.cliente}</p>
                               <span className="inline-block bg-slate-800 text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-medium mt-0.5">
                                 {ord.tipoTrabajo}
                               </span>
                             </td>
-                            <td className="p-3">
+                            <td className="p-4">
                               <p className="text-[11px] text-slate-300">Sup: <b>{ord.supervisorNombre}</b></p>
                               <p className="text-[11px] text-sky-400">Téc: <b>{ord.tecnicoNombre}</b></p>
 
@@ -2122,7 +2181,7 @@
                                 </p>
                               </div>
                             </td>
-                            <td className="p-3">
+                            <td className="p-4">
                               <div className="space-y-1">
                                 {ord.items?.map((i, idx) => (
                                   <div key={idx} className="flex items-center gap-1.5 text-[11px]">
@@ -2136,12 +2195,12 @@
                                 ))}
                               </div>
                             </td>
-                            <td className="p-3">
+                            <td className="p-4">
                               <span className={`px-2 py-1 rounded text-[10px] font-bold ${ESTADO_COLORES[ord.estado]}`}>
                                 {ord.estado}
                               </span>
                             </td>
-                            <td className="p-3 text-right space-x-1.5">
+                            <td className="p-4 text-right space-x-1.5">
                               {/* "Editar" se oculta cuando la OIT está TRABAJO_FINALIZADO (por conciliar):
                                   cualquier corrección de ítems se hace directamente dentro de la ventana
                                   de Conciliación, no aquí. */}
@@ -2267,6 +2326,7 @@
                         <input
                           type="text"
                           required
+                          placeholder="Ej. SUPERMERCADOS PERUANOS S.P.S.A."
                           value={cliente}
                           onChange={e => setCliente(e.target.value)}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:border-amber-500 focus:outline-none"
@@ -2389,13 +2449,22 @@
                   </form>
 
                   <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-bold text-white">Mis OITs ({usuarioAutenticado.tipoTrabajo})</h3>
-                      <button onClick={exportarExcel} className="text-emerald-400 text-xs hover:underline">Excel</button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setMostrarModalConciliados(true)}
+                          className="text-emerald-400 text-xs hover:underline"
+                        >
+                          🗂️ Conciliadas ({ordenesConciliadas.length})
+                        </button>
+                        <button onClick={exportarExcel} className="text-emerald-400 text-xs hover:underline">Excel</button>
+                      </div>
                     </div>
 
+                    {/* Las OITs ya CERRADO_CONCILIADO se ven en la ventana "🗂️ OITs Conciliadas", no aquí. */}
                     <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
-                      {ordenes.filter(o => o.tipoTrabajo === usuarioAutenticado.tipoTrabajo).map(o => (
+                      {ordenes.filter(o => o.tipoTrabajo === usuarioAutenticado.tipoTrabajo && o.estado !== 'CERRADO_CONCILIADO').map(o => (
                         <div key={o.id} className="bg-slate-900 border border-slate-800 p-3.5 rounded-lg space-y-2">
                           <div className="flex justify-between items-start">
                             <div>
@@ -2436,7 +2505,7 @@
                               </>
                             )}
 
-                            {(o.estado === 'TRABAJO_FINALIZADO' || o.estado === 'CERRADO_CONCILIADO') && (
+                            {o.estado === 'CERRADO_CONCILIADO' && (
                               <button
                                 onClick={() => exportarPdfActa(o)}
                                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded text-[10px] border border-slate-700 font-semibold"
@@ -2469,13 +2538,22 @@
                     <h2 className="text-sm font-bold text-white">Bandeja de Asignaciones Técnicas</h2>
                     <p className="text-xs text-slate-400">Requerimientos vinculados a: <b className="text-white">{usuarioAutenticado.nombre}</b> ({usuarioAutenticado.email})</p>
                   </div>
-                  <button onClick={exportarExcel} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
-                    📊 Exportar Mis OITs
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setMostrarModalConciliados(true)}
+                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold"
+                    >
+                      🗂️ Conciliadas ({ordenesConciliadas.length})
+                    </button>
+                    <button onClick={exportarExcel} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                      📊 Exportar Mis OITs
+                    </button>
+                  </div>
                 </div>
 
+                {/* Las OITs ya CERRADO_CONCILIADO se ven en la ventana "🗂️ OITs Conciliadas", no aquí. */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {ordenes.filter(o => o.tecnicoId === usuarioAutenticado.id).map(o => (
+                  {ordenes.filter(o => o.tecnicoId === usuarioAutenticado.id && o.estado !== 'CERRADO_CONCILIADO').map(o => (
                     <div key={o.id} className="bg-slate-950 border border-slate-800 p-5 rounded-xl space-y-3">
                       <div className="flex justify-between items-start">
                         <div>
@@ -2516,7 +2594,7 @@
                         </p>
                       )}
 
-                      {(o.estado === 'TRABAJO_FINALIZADO' || o.estado === 'CERRADO_CONCILIADO') && (
+                      {o.estado === 'CERRADO_CONCILIADO' && (
                         <button
                           onClick={() => exportarPdfActa(o)}
                           className="w-full bg-slate-900 hover:bg-slate-800 text-slate-300 py-1.5 rounded text-xs border border-slate-700"
@@ -2527,9 +2605,9 @@
                     </div>
                   ))}
 
-                  {ordenes.filter(o => o.tecnicoId === usuarioAutenticado.id).length === 0 && (
+                  {ordenes.filter(o => o.tecnicoId === usuarioAutenticado.id && o.estado !== 'CERRADO_CONCILIADO').length === 0 && (
                     <div className="col-span-full py-12 text-center bg-slate-950 border border-slate-800 rounded-xl">
-                      <p className="text-slate-400 text-sm">No tienes requerimientos asignados actualmente.</p>
+                      <p className="text-slate-400 text-sm">No tienes requerimientos activos actualmente. Revisa "🗂️ Conciliadas" para ver tu historial cerrado.</p>
                     </div>
                   )}
                 </div>
