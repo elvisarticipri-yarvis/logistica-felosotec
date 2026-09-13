@@ -442,6 +442,10 @@
       const [paginaActual, setPaginaActual] = useState(1);
       const ITEMS_POR_PAGINA = 10;
 
+      // Ventana/archivo de OITs ya conciliadas (separado de la Bandeja Global de trabajo activo)
+      const [mostrarModalConciliados, setMostrarModalConciliados] = useState(false);
+      const [buscarConciliados, setBuscarConciliados] = useState('');
+
       const tecnicos = usuarios.filter(u => u.rol === 'TECNICO_EJECUTANTE');
       const adminLogisticaUsers = usuarios.filter(u => u.rol === 'ADMIN_LOGISTICA');
 
@@ -454,7 +458,17 @@
         return new Date(a, m - 1, d);
       };
 
+      // Las OITs ya conciliadas (CERRADO_CONCILIADO) se archivan aparte, en la ventana
+      // "🗂️ OITs Conciliadas", para que la Bandeja Global quede solo con trabajo activo.
+      const ordenesConciliadas = ordenes.filter(o => o.estado === 'CERRADO_CONCILIADO');
+      const ordenesConciliadasFiltradas = ordenesConciliadas.filter(o => {
+        if (!buscarConciliados.trim()) return true;
+        const texto = buscarConciliados.trim().toLowerCase();
+        return (o.codigoOit || '').toLowerCase().includes(texto) || (o.cliente || '').toLowerCase().includes(texto);
+      });
+
       const ordenesFiltradas = ordenes.filter(o => {
+        if (o.estado === 'CERRADO_CONCILIADO') return false;
         if (filtroEstado !== 'TODOS' && o.estado !== filtroEstado) return false;
         if (filtroTecnicoId !== 'TODOS' && o.tecnicoId !== filtroTecnicoId) return false;
         if (filtroTipoTrabajo !== 'TODOS' && o.tipoTrabajo !== filtroTipoTrabajo) return false;
@@ -1746,7 +1760,9 @@
         doc.text("EJECUTADO Y LIQUIDADO (TÉCNICO)", 136, finalY + 4);
         doc.text(o.tecnicoNombre.slice(0, 24), 136, finalY + 8);
 
-        doc.save(`Acta_LOG_RE_03_${o.codigoOit}.pdf`);
+        // Nombre del archivo: Acta_LOG_(OIT - NOMBRE DEL CLIENTE).pdf, sin caracteres inválidos para archivos.
+        const sanear = (t) => String(t || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+        doc.save(`Acta_LOG_(${sanear(o.codigoOit)} - ${sanear(o.cliente)}).pdf`);
       };
 
       // ==========================================
@@ -1958,6 +1974,12 @@
                   >
                     📈 {mostrarReportes ? 'Ocultar Reportes' : 'Ver Reportes y Estadísticas'}
                   </button>
+                  <button
+                    onClick={() => setMostrarModalConciliados(true)}
+                    className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center gap-2"
+                  >
+                    🗂️ OITs Conciliadas ({ordenesConciliadas.length})
+                  </button>
                 </div>
 
                 {mostrarReportes && <PanelReportes ordenes={ordenes} />}
@@ -1966,7 +1988,7 @@
                   <div className="p-4 border-b border-slate-800 flex justify-between items-center">
                     <div>
                       <h2 className="text-sm font-bold text-white">Bandeja Global de Requerimientos OIT / TK</h2>
-                      <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación sincronizada</p>
+                      <p className="text-xs text-slate-400">Atención, despacho, edición de ítems y conciliación sincronizada. Las OITs ya conciliadas se archivan en "🗂️ OITs Conciliadas".</p>
                     </div>
                     <span className="text-xs text-slate-400">
                       {ordenesFiltradas.length} de {ordenes.length} órdenes {ordenesFiltradas.length !== ordenes.length ? '(filtradas)' : 'en la nube'}
@@ -1983,7 +2005,7 @@
                         className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
                       >
                         <option value="TODOS">Todos</option>
-                        {Object.keys(ESTADO_COLORES).map(est => <option key={est} value={est}>{est}</option>)}
+                        {Object.keys(ESTADO_COLORES).filter(est => est !== 'CERRADO_CONCILIADO').map(est => <option key={est} value={est}>{est}</option>)}
                       </select>
                     </div>
                     <div>
@@ -2120,14 +2142,19 @@
                               </span>
                             </td>
                             <td className="p-3 text-right space-x-1.5">
-                              <button
-                                onClick={() => abrirModalEdicionOit(ord)}
-                                disabled={ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE'}
-                                title={(ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE') ? 'Disponible luego de realizar el despacho, para agregar pedidos adicionales' : 'Agregar ítems adicionales a la OIT ya despachada'}
-                                className={`px-2 py-1.5 rounded text-[11px] border transition font-semibold ${(ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE') ? 'bg-slate-900 text-slate-600 border-slate-800 opacity-50 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-500/30'}`}
-                              >
-                                ✏️ Editar
-                              </button>
+                              {/* "Editar" se oculta cuando la OIT está TRABAJO_FINALIZADO (por conciliar):
+                                  cualquier corrección de ítems se hace directamente dentro de la ventana
+                                  de Conciliación, no aquí. */}
+                              {ord.estado !== 'TRABAJO_FINALIZADO' && (
+                                <button
+                                  onClick={() => abrirModalEdicionOit(ord)}
+                                  disabled={ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE'}
+                                  title={(ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE') ? 'Disponible luego de realizar el despacho, para agregar pedidos adicionales' : 'Agregar ítems adicionales a la OIT ya despachada'}
+                                  className={`px-2 py-1.5 rounded text-[11px] border transition font-semibold ${(ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE') ? 'bg-slate-900 text-slate-600 border-slate-800 opacity-50 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-500/30'}`}
+                                >
+                                  ✏️ Editar
+                                </button>
+                              )}
 
                               {(ord.estado === 'SOLICITADO' || ord.estado === 'PENDIENTE') && (
                                 <button
@@ -2146,15 +2173,8 @@
                                   📑 Conciliar
                                 </button>
                               )}
-
-                              {(ord.estado === 'TRABAJO_FINALIZADO' || ord.estado === 'CERRADO_CONCILIADO') && (
-                                <button
-                                  onClick={() => exportarPdfActa(ord)}
-                                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1.5 rounded text-[11px] border border-slate-700"
-                                >
-                                  📄 Acta
-                                </button>
-                              )}
+                              {/* El botón "Acta" ya no aparece aquí: solo se ve en la ventana
+                                  "🗂️ OITs Conciliadas", una vez que la OIT queda CERRADO_CONCILIADO. */}
 
                               {rol === 'ADMINISTRADOR' && (
                                 <button
@@ -3295,6 +3315,66 @@
                     >
                       Guardar, Registrar Auditoría y Conciliado
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: OITS CONCILIADAS (ARCHIVO) — solo lectura + descarga de Acta */}
+            {mostrarModalConciliados && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setMostrarModalConciliados(false)}>
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-4xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">🗂️ OITs Conciliadas</h3>
+                      <p className="text-xs text-slate-400">Archivo de solicitudes ya cerradas y conciliadas ({ordenesConciliadas.length} en total)</p>
+                    </div>
+                    <button onClick={() => setMostrarModalConciliados(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Buscar por código OIT/TK o cliente..."
+                    value={buscarConciliados}
+                    onChange={e => setBuscarConciliados(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white"
+                  />
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-900 text-slate-400 uppercase text-[10px]">
+                        <tr>
+                          <th className="p-2 text-left">OIT / TK</th>
+                          <th className="p-2 text-left">Cliente</th>
+                          <th className="p-2 text-left">Técnico</th>
+                          <th className="p-2 text-left">Fecha de Cierre</th>
+                          <th className="p-2 text-right">Acta</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900">
+                        {ordenesConciliadasFiltradas.map(o => (
+                          <tr key={o.id} className="hover:bg-slate-900/50">
+                            <td className="p-2 font-mono text-amber-300">{o.codigoOit}</td>
+                            <td className="p-2 text-white">{o.cliente}</td>
+                            <td className="p-2 text-sky-400">{o.tecnicoNombre}</td>
+                            <td className="p-2 text-slate-300">{o.fechaCierre || 'N/A'}</td>
+                            <td className="p-2 text-right">
+                              <button
+                                onClick={() => exportarPdfActa(o)}
+                                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded text-[11px] border border-slate-700"
+                              >
+                                📄 Acta
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {ordenesConciliadasFiltradas.length === 0 && (
+                      <p className="text-center text-slate-500 text-xs py-8">
+                        {ordenesConciliadas.length === 0 ? 'Todavía no hay OITs conciliadas.' : 'Ninguna coincide con la búsqueda.'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
