@@ -393,6 +393,12 @@
       const [itemCant, setItemCant] = useState(1);
       const [itemDestino, setItemDestino] = useState('CLIENTE');
 
+      // Plantillas de solicitud (Supervisor): guarda combinaciones de ítems ya usadas,
+      // con el nombre que cada supervisor elija, para reutilizarlas en solicitudes futuras.
+      const [plantillasSolicitud, setPlantillasSolicitud] = useState([]);
+      const [mostrarModalPlantillas, setMostrarModalPlantillas] = useState(false);
+      const [nombrePlantillaNueva, setNombrePlantillaNueva] = useState('');
+
       // Modal Liquidación Técnico
       const [oitParaLiquidar, setOitParaLiquidar] = useState(null);
 
@@ -577,6 +583,25 @@
           unsubCatHerramientas();
           unsubCatEquipos();
         };
+      }, [usuarioAutenticado]);
+
+      // --- SINCRONIZACIÓN DE PLANTILLAS DE SOLICITUD (SOLO SUPERVISOR) ---
+      // Cada Supervisor ve y administra únicamente sus propias plantillas
+      // (filtradas por supervisorId), no las de otros supervisores.
+      useEffect(() => {
+        if (!firebaseHabilitado || !db || !usuarioAutenticado || usuarioAutenticado.rol !== 'SUPERVISOR_SOLICITANTE') {
+          setPlantillasSolicitud([]);
+          return;
+        }
+        const unsubPlantillas = db.collection('plantillas_solicitudes')
+          .where('supervisorId', '==', usuarioAutenticado.id)
+          .onSnapshot((snap) => {
+            const lista = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+            setPlantillasSolicitud(lista);
+          }, (err) => console.error("Error plantillas de solicitud Firestore:", err));
+
+        return () => unsubPlantillas();
       }, [usuarioAutenticado]);
 
       useEffect(() => {
@@ -1030,11 +1055,12 @@
       // recién agregar una colección nueva (como catalogo_materiales/herramientas/equipos)
       // es que falte pegar la regla de seguridad correspondiente en Firebase Console:
       // Firestore deniega por defecto ("permission-denied") lo que no tenga regla explícita.
-      const describirErrorFirestore = (err) => {
+      const describirErrorFirestore = (err, contexto) => {
         const codigo = err && err.code;
         const mensaje = String((err && err.message) || err || '');
         if (codigo === 'permission-denied' || /permission|insufficient permissions/i.test(mensaje)) {
-          return 'Firestore rechazó la operación por permisos (permission-denied). Es muy probable que falten las reglas de seguridad para el catálogo (colecciones catalogo_materiales, catalogo_herramientas, catalogo_equipos). Revise la sección 2 de las notas técnicas y vuelva a pegar/publicar las reglas en Firebase Console → Firestore Database → Reglas.';
+          const detalle = contexto || 'el catálogo (colecciones catalogo_materiales, catalogo_herramientas, catalogo_equipos)';
+          return `Firestore rechazó la operación por permisos (permission-denied). Es muy probable que falten las reglas de seguridad para ${detalle}. Revise las notas técnicas y vuelva a pegar/publicar las reglas en Firebase Console → Firestore Database → Reglas.`;
         }
         return `Ocurrió un error inesperado: ${mensaje || codigo || 'sin detalle'}`;
       };
@@ -1222,6 +1248,60 @@
         setItemDesc('');
         setItemSerie('');
         setItemCant(1);
+      };
+
+      // --- PLANTILLAS DE SOLICITUD (SUPERVISOR) ---
+      // Guardan solo la lista de ítems (Materiales/Herramientas/Equipos) bajo un
+      // nombre elegido por el propio supervisor; no guardan Código OIT/TK ni Cliente
+      // Final, porque esos datos son únicos de cada solicitud, no reutilizables.
+      const guardarPlantillaActual = async () => {
+        const nombre = nombrePlantillaNueva.trim();
+        if (!nombre) return alert('Ingrese un nombre para la plantilla.');
+        if (itemsBorrador.length === 0) return alert('Añada al menos un ítem antes de guardar la plantilla.');
+
+        const nueva = {
+          id: Date.now().toString(),
+          supervisorId: usuarioAutenticado.id,
+          supervisorNombre: usuarioAutenticado.nombre,
+          nombre,
+          items: itemsBorrador,
+          fechaCreacion: formatearFechaHora()
+        };
+
+        try {
+          if (firebaseHabilitado && db) {
+            await db.collection('plantillas_solicitudes').doc(nueva.id).set(nueva);
+          } else {
+            setPlantillasSolicitud([...plantillasSolicitud, nueva]);
+          }
+          setNombrePlantillaNueva('');
+          alert(`Plantilla "${nombre}" guardada.`);
+        } catch (err) {
+          console.error('Error al guardar plantilla de solicitud:', err);
+          alert(describirErrorFirestore(err, 'las plantillas de solicitud (colección plantillas_solicitudes)'));
+        }
+      };
+
+      // Carga la plantilla en el formulario actual (con ids nuevos, para no chocar
+      // con los ítems ya presentes) y la deja lista para editar antes de enviar.
+      const usarPlantilla = (plantilla) => {
+        const itemsClonados = (plantilla.items || []).map(it => ({ ...it, id: `${Date.now()}${Math.random().toString(36).slice(2, 6)}` }));
+        setItemsBorrador([...itemsBorrador, ...itemsClonados]);
+        setMostrarModalPlantillas(false);
+      };
+
+      const eliminarPlantilla = async (id, nombre) => {
+        if (!confirm(`¿Eliminar la plantilla "${nombre}"?`)) return;
+        try {
+          if (firebaseHabilitado && db) {
+            await db.collection('plantillas_solicitudes').doc(id).delete();
+          } else {
+            setPlantillasSolicitud(plantillasSolicitud.filter(p => p.id !== id));
+          }
+        } catch (err) {
+          console.error('Error al eliminar plantilla de solicitud:', err);
+          alert(describirErrorFirestore(err, 'las plantillas de solicitud (colección plantillas_solicitudes)'));
+        }
       };
 
       const crearSolicitudOit = async (e) => {
@@ -2254,9 +2334,19 @@
                         <h3 className="text-base font-bold text-white">📝 Nuevo Requerimiento OIT / TK</h3>
                         <p className="text-[11px] text-slate-400">Notificación automática a <b>aarana@felosotec.com</b> con copia al técnico</p>
                       </div>
-                      <span className="text-xs bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded border border-amber-500/20 font-bold">
-                        {usuarioAutenticado.tipoTrabajo}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded border border-amber-500/20 font-bold">
+                          {usuarioAutenticado.tipoTrabajo}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMostrarModalPlantillas(true)}
+                          title="Usar o guardar plantillas de ítems para agilizar futuras solicitudes"
+                          className="bg-slate-800 hover:bg-slate-700 text-sky-400 px-2.5 py-1 rounded-lg text-[11px] font-bold border border-sky-500/30 transition"
+                        >
+                          📋 Plantillas ({plantillasSolicitud.length})
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -3377,6 +3467,10 @@
                           <th className="p-2 text-left">Técnico</th>
                           <th className="p-2 text-left">Fecha de Cierre</th>
                           <th className="p-2 text-right">Acta</th>
+                          {/* Eliminar una OIT ya conciliada es una acción sensible (borra el
+                              registro histórico/de auditoría): solo el ADMINISTRADOR GENERAL
+                              puede hacerlo, ni siquiera ADMIN_LOGISTICA. */}
+                          {rol === 'ADMINISTRADOR' && <th className="p-2 text-right">Eliminar</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-900">
@@ -3394,6 +3488,17 @@
                                 📄 Acta
                               </button>
                             </td>
+                            {rol === 'ADMINISTRADOR' && (
+                              <td className="p-2 text-right">
+                                <button
+                                  onClick={() => eliminarRequerimientoAdmin(o.id, o.codigoOit)}
+                                  title="Eliminar definitivamente esta OIT conciliada"
+                                  className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[11px] transition font-semibold"
+                                >
+                                  🗑️
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -3649,6 +3754,80 @@
                     ))}
                     {obtenerCatalogoPorCategoria(catalogoTabActiva).length === 0 && (
                       <p className="text-center text-slate-500 text-xs py-6">Todavía no hay productos en esta categoría. Agregue uno arriba o cargue un Excel.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: PLANTILLAS DE SOLICITUD (SUPERVISOR) */}
+            {mostrarModalPlantillas && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setMostrarModalPlantillas(false)}>
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-lg w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">📋 Plantillas de Solicitud</h3>
+                      <p className="text-xs text-slate-400">Guarda combinaciones de ítems que uses seguido, para no volver a escribirlas cada vez</p>
+                    </div>
+                    <button onClick={() => setMostrarModalPlantillas(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  {/* Guardar los ítems actualmente configurados en el formulario como plantilla nueva */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-semibold text-slate-300">
+                      💾 Guardar los ítems actuales del formulario como plantilla
+                      {itemsBorrador.length === 0 && <span className="text-slate-500 font-normal"> (no hay ítems configurados todavía)</span>}
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nombre de la plantilla, ej. Mantenimiento Preventivo Estándar"
+                        value={nombrePlantillaNueva}
+                        onChange={e => setNombrePlantillaNueva(e.target.value)}
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={guardarPlantillaActual}
+                        disabled={itemsBorrador.length === 0}
+                        className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-3 py-2 rounded text-xs"
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Lista de plantillas ya guardadas por este supervisor */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-bold text-slate-300">Mis plantillas guardadas ({plantillasSolicitud.length}):</p>
+                    {plantillasSolicitud.map(p => (
+                      <div key={p.id} className="bg-slate-900 border border-slate-800 p-2.5 rounded text-xs space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <p className="font-semibold text-white">{p.nombre}</p>
+                            <p className="text-[10px] text-slate-500">{(p.items || []).length} ítem(s) · guardada el {p.fechaCreacion || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => usarPlantilla(p)}
+                            className="bg-sky-600 hover:bg-sky-500 text-white font-semibold px-2.5 py-1 rounded text-[11px]"
+                          >
+                            ✅ Usar en esta solicitud
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => eliminarPlantilla(p.id, p.nombre)}
+                            className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded text-[11px] font-semibold"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {plantillasSolicitud.length === 0 && (
+                      <p className="text-center text-slate-500 text-xs py-6">Todavía no tienes plantillas guardadas.</p>
                     )}
                   </div>
                 </div>
