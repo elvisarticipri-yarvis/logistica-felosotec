@@ -29,6 +29,33 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* ===== Pantalla de login: "Lámpara de Escritorio" interactiva ===== */
+    .lamp-bg-on {
+      background:
+        radial-gradient(ellipse 480px 620px at 50% 0%, rgba(245,158,11,0.16), transparent 70%),
+        #020617;
+    }
+    .lamp-dust-particle {
+      position: absolute;
+      top: 8%;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: rgba(253,230,138,0.85);
+      box-shadow: 0 0 4px 1px rgba(253,230,138,0.6);
+      opacity: 0;
+      animation-name: lamp-dust-fall;
+      animation-timing-function: ease-in-out;
+      animation-iteration-count: infinite;
+    }
+    @keyframes lamp-dust-fall {
+      0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
+      10%  { opacity: 0.9; }
+      50%  { transform: translate(14px, 160px) scale(1); opacity: 0.6; }
+      90%  { opacity: 0; }
+      100% { transform: translate(-10px, 260px) scale(0.5); opacity: 0; }
+    }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
@@ -330,6 +357,11 @@
       const [loginUser, setLoginUser] = useState('');
       const [loginPass, setLoginPass] = useState('');
       const [errorLogin, setErrorLogin] = useState('');
+
+      // Interacción "Lámpara de Escritorio" en la pantalla de login: solo controla
+      // la animación/revelado visual del formulario (encendido/apagado), no afecta
+      // en nada la lógica de autenticación real (handleLogin, loginUser, etc.).
+      const [lamparaEncendida, setLamparaEncendida] = useState(false);
 
       const [ordenes, setOrdenes] = useState(() => {
         const o = localStorage.getItem('FELOSOTEC_ORDENES_AUTH_V3');
@@ -1855,68 +1887,139 @@
       };
 
       // ==========================================
-      // PANTALLA LOGIN
+      // PANTALLA LOGIN — "Lámpara de Escritorio" interactiva
       // ==========================================
+      // Inspirada en un concepto de referencia (login con lámpara que se
+      // enciende al tirar del cordón, con un cono de luz que revela el
+      // formulario). Es puramente visual/interactivo: NO toca handleLogin,
+      // loginUser, loginPass, errorLogin ni validandoLogin, que siguen
+      // exactamente igual que antes. `lamparaEncendida` solo decide si el
+      // formulario está revelado (encendido) u oculto en penumbra (apagado).
       if (!usuarioAutenticado) {
         return (
-          <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950">
-            <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-full shadow-2xl space-y-6">
-              <div className="text-center space-y-2">
-                <span className="bg-amber-500 text-slate-950 font-extrabold px-3 py-1 rounded text-xs tracking-wider uppercase">
-                  LOG_RE_03 v03
-                </span>
-                <h1 className="text-2xl font-bold text-white tracking-wide">FELOSOTEC E.I.R.L.</h1>
-                <p className="text-xs text-slate-400">Portal de Acceso y Control Logístico por OIT</p>
-                {firebaseHabilitado && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Nube Firestore Conectada
-                  </span>
-                )}
+          <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
+            {/* Fondo ambiente: oscuro cuando está apagada, con un tinte ámbar muy suave cuando está encendida */}
+            <div className={`absolute inset-0 pointer-events-none transition-all duration-1000 ${lamparaEncendida ? 'lamp-bg-on' : 'bg-slate-950'}`}></div>
+
+            {/* Partículas de polvo flotando en la luz (decorativo, solo CSS) */}
+            {lamparaEncendida && (
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {Array.from({ length: 16 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="lamp-dust-particle"
+                    style={{
+                      left: `${(i * 23 + 7) % 100}%`,
+                      animationDelay: `${(i * 0.35) % 5}s`,
+                      animationDuration: `${5 + (i % 4) * 1.3}s`
+                    }}
+                  ></span>
+                ))}
               </div>
+            )}
 
-              {errorLogin && (
-                <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-3 rounded-lg text-center">
-                  {errorLogin}
-                </div>
+            {/* LÁMPARA DE ESCRITORIO */}
+            <div className="relative z-10 flex flex-col items-center select-none">
+              <div className="w-0.5 h-5 bg-slate-700"></div>
+
+              {/* Pantalla/shade de la lámpara (triángulo con CSS puro) */}
+              <div
+                className="transition-all duration-700"
+                style={{
+                  width: 0,
+                  height: 0,
+                  borderLeft: '46px solid transparent',
+                  borderRight: '46px solid transparent',
+                  borderBottom: `58px solid ${lamparaEncendida ? '#f59e0b' : '#334155'}`,
+                  filter: lamparaEncendida ? 'drop-shadow(0 0 35px rgba(245,158,11,0.65))' : 'none'
+                }}
+              ></div>
+
+              {/* Base/soporte corto debajo de la pantalla */}
+              <div className={`w-2 h-3 -mt-0.5 rounded-b transition-colors duration-700 ${lamparaEncendida ? 'bg-amber-600' : 'bg-slate-700'}`}></div>
+
+              {/* Cordón: al hacer clic, enciende/apaga la lámpara */}
+              <button
+                type="button"
+                onClick={() => setLamparaEncendida(v => !v)}
+                title={lamparaEncendida ? 'Apagar la lámpara' : 'Tira del cordón para encender'}
+                className="flex flex-col items-center mt-1.5 group focus:outline-none cursor-pointer"
+              >
+                <span className={`w-0.5 rounded-full bg-slate-500 transition-all duration-300 ${lamparaEncendida ? 'h-9' : 'h-6 group-hover:h-8'}`}></span>
+                <span className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-300 group-hover:scale-110 ${lamparaEncendida ? 'bg-amber-400 border-amber-300 shadow-[0_0_10px_2px_rgba(251,191,36,0.7)]' : 'bg-slate-600 border-slate-500'}`}></span>
+              </button>
+
+              {!lamparaEncendida && (
+                <p className="mt-5 text-[11px] text-slate-500 text-center max-w-[220px] animate-pulse">
+                  💡 Tira del cordón para encender la lámpara y acceder al portal
+                </p>
               )}
+            </div>
 
-              <form onSubmit={handleLogin} className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Usuario o Correo Institucional</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. aarana@felosotec.com, eartica@felosotec.com"
-                    value={loginUser}
-                    onChange={e => setLoginUser(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
-                  />
+            {/* TARJETA DE LOGIN: se revela dentro del cono de luz al encender */}
+            <div
+              className={`relative z-10 w-full max-w-md transition-all duration-700 ease-out overflow-hidden ${
+                lamparaEncendida ? 'opacity-100 scale-100 translate-y-0 max-h-[640px] mt-6' : 'opacity-0 scale-95 translate-y-4 max-h-0 mt-0 pointer-events-none'
+              }`}
+            >
+              <div className="bg-slate-900 border border-amber-500/20 p-8 rounded-2xl w-full shadow-2xl shadow-amber-500/10 space-y-6">
+                <div className="text-center space-y-2">
+                  <span className="bg-amber-500 text-slate-950 font-extrabold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                    LOG_RE_03 v03
+                  </span>
+                  <h1 className="text-2xl font-bold text-white tracking-wide">FELOSOTEC E.I.R.L.</h1>
+                  <p className="text-xs text-slate-400">Portal de Acceso y Control Logístico por OIT</p>
+                  {firebaseHabilitado && (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Nube Firestore Conectada
+                    </span>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Contraseña</label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    value={loginPass}
-                    onChange={e => setLoginPass(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
-                  />
+                {errorLogin && (
+                  <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-3 rounded-lg text-center">
+                    {errorLogin}
+                  </div>
+                )}
+
+                <form onSubmit={handleLogin} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Usuario o Correo Institucional</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. aarana@felosotec.com, eartica@felosotec.com"
+                      value={loginUser}
+                      onChange={e => setLoginUser(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-semibold mb-1">Contraseña</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={loginPass}
+                      onChange={e => setLoginPass(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={validandoLogin}
+                    className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-bold py-3 rounded-lg text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/10"
+                  >
+                    {validandoLogin ? 'Verificando...' : 'Iniciar Sesión'}
+                  </button>
+                </form>
+
+                <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 text-center">
+                  <p>¿Olvidó su contraseña? Solicítela a su administrador de logística.</p>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={validandoLogin}
-                  className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-bold py-3 rounded-lg text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/10"
-                >
-                  {validandoLogin ? 'Verificando...' : 'Iniciar Sesión'}
-                </button>
-              </form>
-
-              <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1 text-center">
-                <p>¿Olvidó su contraseña? Solicítela a su administrador de logística.</p>
               </div>
             </div>
           </div>
