@@ -430,6 +430,17 @@
       const [plantillasSolicitud, setPlantillasSolicitud] = useState([]);
       const [mostrarModalPlantillas, setMostrarModalPlantillas] = useState(false);
       const [nombrePlantillaNueva, setNombrePlantillaNueva] = useState('');
+      // Cliente es opcional en la plantilla: solo algunos supervisores trabajan siempre
+      // con el mismo cliente final y quieren que la plantilla también lo recuerde.
+      const [clientePlantillaNueva, setClientePlantillaNueva] = useState('');
+
+      // Edición de una plantilla ya guardada (nombre, cliente opcional e ítems)
+      const [plantillaEnEdicion, setPlantillaEnEdicion] = useState(null);
+      const [plEditItemCat, setPlEditItemCat] = useState('MATERIAL');
+      const [plEditItemDesc, setPlEditItemDesc] = useState('');
+      const [plEditItemSerie, setPlEditItemSerie] = useState('');
+      const [plEditItemCant, setPlEditItemCant] = useState(1);
+      const [plEditItemDestino, setPlEditItemDestino] = useState('CLIENTE');
 
       // Modal Liquidación Técnico
       const [oitParaLiquidar, setOitParaLiquidar] = useState(null);
@@ -1283,9 +1294,11 @@
       };
 
       // --- PLANTILLAS DE SOLICITUD (SUPERVISOR) ---
-      // Guardan solo la lista de ítems (Materiales/Herramientas/Equipos) bajo un
-      // nombre elegido por el propio supervisor; no guardan Código OIT/TK ni Cliente
-      // Final, porque esos datos son únicos de cada solicitud, no reutilizables.
+      // Guardan la lista de ítems (Materiales/Herramientas/Equipos) bajo un nombre
+      // elegido por el propio supervisor; no guardan Código OIT/TK porque ese dato es
+      // único de cada solicitud. El Cliente sí se puede guardar, pero es OPCIONAL:
+      // solo tiene sentido si el supervisor repite siempre el mismo cliente final en
+      // esa plantilla; si lo deja vacío, al usarla el campo Cliente Final no se toca.
       const guardarPlantillaActual = async () => {
         const nombre = nombrePlantillaNueva.trim();
         if (!nombre) return alert('Ingrese un nombre para la plantilla.');
@@ -1296,6 +1309,7 @@
           supervisorId: usuarioAutenticado.id,
           supervisorNombre: usuarioAutenticado.nombre,
           nombre,
+          cliente: clientePlantillaNueva.trim(), // opcional
           items: itemsBorrador,
           fechaCreacion: formatearFechaHora()
         };
@@ -1307,6 +1321,7 @@
             setPlantillasSolicitud([...plantillasSolicitud, nueva]);
           }
           setNombrePlantillaNueva('');
+          setClientePlantillaNueva('');
           alert(`Plantilla "${nombre}" guardada.`);
         } catch (err) {
           console.error('Error al guardar plantilla de solicitud:', err);
@@ -1316,10 +1331,86 @@
 
       // Carga la plantilla en el formulario actual (con ids nuevos, para no chocar
       // con los ítems ya presentes) y la deja lista para editar antes de enviar.
+      // Si la plantilla tiene un Cliente guardado (opcional), se rellena también
+      // el campo Cliente Final del formulario.
       const usarPlantilla = (plantilla) => {
         const itemsClonados = (plantilla.items || []).map(it => ({ ...it, id: `${Date.now()}${Math.random().toString(36).slice(2, 6)}` }));
         setItemsBorrador([...itemsBorrador, ...itemsClonados]);
+        if (plantilla.cliente && plantilla.cliente.trim()) {
+          setCliente(plantilla.cliente);
+        }
         setMostrarModalPlantillas(false);
+      };
+
+      // --- EDICIÓN DE UNA PLANTILLA YA GUARDADA ---
+      const abrirEdicionPlantilla = (p) => {
+        setPlantillaEnEdicion(JSON.parse(JSON.stringify(p)));
+        setPlEditItemCat('MATERIAL');
+        setPlEditItemDesc('');
+        setPlEditItemSerie('');
+        setPlEditItemCant(1);
+        setPlEditItemDestino('CLIENTE');
+      };
+
+      const agregarItemEnEdicionPlantilla = () => {
+        if (!plEditItemDesc.trim()) return alert('Ingrese la descripción del ítem');
+        const nuevo = {
+          id: Date.now().toString(),
+          categoria: plEditItemCat,
+          descripcion: plEditItemDesc,
+          serieActivo: plEditItemSerie,
+          unidad: 'UND',
+          cantidadSolicitada: Number(plEditItemCant),
+          destino: plEditItemDestino,
+          cantidadInstalada: 0,
+          cantidadDevuelta: 0,
+          estadoRetorno: 'OPERATIVO'
+        };
+        setPlantillaEnEdicion({ ...plantillaEnEdicion, items: [...(plantillaEnEdicion.items || []), nuevo] });
+        setPlEditItemDesc('');
+        setPlEditItemSerie('');
+        setPlEditItemCant(1);
+      };
+
+      const eliminarItemEnEdicionPlantilla = (id) => {
+        setPlantillaEnEdicion({
+          ...plantillaEnEdicion,
+          items: (plantillaEnEdicion.items || []).filter(i => i.id !== id)
+        });
+      };
+
+      const actualizarCampoItemEnEdicionPlantilla = (id, campo, valor) => {
+        setPlantillaEnEdicion({
+          ...plantillaEnEdicion,
+          items: (plantillaEnEdicion.items || []).map(i => i.id === id ? { ...i, [campo]: valor } : i)
+        });
+      };
+
+      const guardarEdicionPlantilla = async () => {
+        const nombre = (plantillaEnEdicion.nombre || '').trim();
+        if (!nombre) return alert('Ingrese un nombre para la plantilla.');
+        if (!plantillaEnEdicion.items || plantillaEnEdicion.items.length === 0) {
+          return alert('La plantilla debe tener al menos un ítem.');
+        }
+
+        const actualizada = {
+          ...plantillaEnEdicion,
+          nombre,
+          cliente: (plantillaEnEdicion.cliente || '').trim() // opcional
+        };
+
+        try {
+          if (firebaseHabilitado && db) {
+            await db.collection('plantillas_solicitudes').doc(actualizada.id).set(actualizada);
+          } else {
+            setPlantillasSolicitud(plantillasSolicitud.map(p => p.id === actualizada.id ? actualizada : p));
+          }
+          setPlantillaEnEdicion(null);
+          alert(`Plantilla "${nombre}" actualizada.`);
+        } catch (err) {
+          console.error('Error al actualizar plantilla de solicitud:', err);
+          alert(describirErrorFirestore(err, 'las plantillas de solicitud (colección plantillas_solicitudes)'));
+        }
       };
 
       const eliminarPlantilla = async (id, nombre) => {
@@ -3881,23 +3972,30 @@
                       💾 Guardar los ítems actuales del formulario como plantilla
                       {itemsBorrador.length === 0 && <span className="text-slate-500 font-normal"> (no hay ítems configurados todavía)</span>}
                     </p>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         type="text"
                         placeholder="Nombre de la plantilla, ej. Mantenimiento Preventivo Estándar"
                         value={nombrePlantillaNueva}
                         onChange={e => setNombrePlantillaNueva(e.target.value)}
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"
+                        className="bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"
                       />
-                      <button
-                        type="button"
-                        onClick={guardarPlantillaActual}
-                        disabled={itemsBorrador.length === 0}
-                        className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-3 py-2 rounded text-xs"
-                      >
-                        Guardar
-                      </button>
+                      <input
+                        type="text"
+                        placeholder="Cliente (opcional) — ej. SUPERMERCADOS PERUANOS S.P.S.A."
+                        value={clientePlantillaNueva}
+                        onChange={e => setClientePlantillaNueva(e.target.value)}
+                        className="bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white"
+                      />
                     </div>
+                    <button
+                      type="button"
+                      onClick={guardarPlantillaActual}
+                      disabled={itemsBorrador.length === 0}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-3 py-2 rounded text-xs"
+                    >
+                      Guardar como Nueva Plantilla
+                    </button>
                   </div>
 
                   {/* Lista de plantillas ya guardadas por este supervisor */}
@@ -3908,7 +4006,9 @@
                         <div className="flex justify-between items-start gap-2">
                           <div>
                             <p className="font-semibold text-white">{p.nombre}</p>
-                            <p className="text-[10px] text-slate-500">{(p.items || []).length} ítem(s) · guardada el {p.fechaCreacion || 'N/A'}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {(p.items || []).length} ítem(s){p.cliente ? <> · Cliente: <span className="text-amber-400">{p.cliente}</span></> : ''} · guardada el {p.fechaCreacion || 'N/A'}
+                            </p>
                           </div>
                         </div>
                         <div className="flex gap-1.5">
@@ -3918,6 +4018,13 @@
                             className="bg-sky-600 hover:bg-sky-500 text-white font-semibold px-2.5 py-1 rounded text-[11px]"
                           >
                             ✅ Usar en esta solicitud
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => abrirEdicionPlantilla(p)}
+                            className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded text-[11px] font-semibold"
+                          >
+                            ✏️ Editar
                           </button>
                           <button
                             type="button"
@@ -3932,6 +4039,195 @@
                     {plantillasSolicitud.length === 0 && (
                       <p className="text-center text-slate-500 text-xs py-6">Todavía no tienes plantillas guardadas.</p>
                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: EDITAR PLANTILLA DE SOLICITUD (SUPERVISOR) — sobre el modal de Plantillas */}
+            {plantillaEnEdicion && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[55] flex items-center justify-center p-4" onClick={() => setPlantillaEnEdicion(null)}>
+                <div className="bg-slate-950 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-white">✏️ Editar Plantilla</h3>
+                      <p className="text-xs text-slate-400">Modifique el nombre, el cliente (opcional) y los ítems de esta plantilla</p>
+                    </div>
+                    <button onClick={() => setPlantillaEnEdicion(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block text-slate-400 mb-1 font-semibold">Nombre de la Plantilla *</label>
+                      <input
+                        type="text"
+                        value={plantillaEnEdicion.nombre}
+                        onChange={e => setPlantillaEnEdicion({ ...plantillaEnEdicion, nombre: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 mb-1 font-semibold">Cliente (opcional)</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. SUPERMERCADOS PERUANOS S.P.S.A."
+                        value={plantillaEnEdicion.cliente || ''}
+                        onChange={e => setPlantillaEnEdicion({ ...plantillaEnEdicion, cliente: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-3.5 rounded-lg border border-slate-800 space-y-2">
+                    <p className="text-xs font-bold text-amber-400">+ Añadir Ítem a la Plantilla</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 text-xs">
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Categoría</label>
+                        <select
+                          value={plEditItemCat}
+                          onChange={e => setPlEditItemCat(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        >
+                          <option value="MATERIAL">Material</option>
+                          <option value="HERRAMIENTA">Herramienta</option>
+                          <option value="EQUIPO">Equipo</option>
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-slate-400 mb-0.5">Descripción</label>
+                        <input
+                          type="text"
+                          list="datalist-catalogo-editplantilla"
+                          placeholder="Descripción del ítem"
+                          value={plEditItemDesc}
+                          onChange={e => setPlEditItemDesc(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                        <datalist id="datalist-catalogo-editplantilla">{opcionesCatalogo(plEditItemCat)}</datalist>
+                      </div>
+                      {plEditItemCat !== 'MATERIAL' && (
+                        <div>
+                          <label className="block text-slate-400 mb-0.5">{etiquetaSerieCategoria(plEditItemCat)}</label>
+                          <input
+                            type="text"
+                            placeholder="Ej. H3C-99281"
+                            value={plEditItemSerie}
+                            onChange={e => setPlEditItemSerie(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Cant.</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={plEditItemCant}
+                          onChange={e => setPlEditItemCant(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-0.5">Destino</label>
+                        <select
+                          value={plEditItemDestino}
+                          onChange={e => setPlEditItemDestino(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white"
+                        >
+                          <option value="CLIENTE">CLIENTE</option>
+                          <option value="NODO">NODO</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={agregarItemEnEdicionPlantilla}
+                      className="w-full bg-slate-800 hover:bg-slate-700 text-amber-400 py-1.5 rounded text-xs font-semibold"
+                    >
+                      Añadir Ítem
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-300">Ítems de esta Plantilla ({plantillaEnEdicion.items?.length || 0}):</p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {plantillaEnEdicion.items?.map((it) => (
+                        <div key={it.id} className="bg-slate-900 p-2.5 rounded border border-slate-800 text-xs space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-mono text-amber-300 font-bold bg-slate-950 px-1.5 py-0.5 rounded">[{it.categoria}]</span>
+                            <button
+                              type="button"
+                              onClick={() => eliminarItemEnEdicionPlantilla(it.id)}
+                              className="text-rose-400 hover:text-rose-300 font-semibold"
+                            >
+                              ✕ Quitar
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                            <div className="sm:col-span-2">
+                              <label className="text-[10px] text-slate-400 block">Descripción</label>
+                              <input
+                                type="text"
+                                value={it.descripcion}
+                                onChange={e => actualizarCampoItemEnEdicionPlantilla(it.id, 'descripcion', e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                              />
+                            </div>
+                            {it.categoria !== 'MATERIAL' && (
+                              <div>
+                                <label className="text-[10px] text-slate-400 block">{etiquetaSerieCategoria(it.categoria)}</label>
+                                <input
+                                  type="text"
+                                  value={it.serieActivo || ''}
+                                  onChange={e => actualizarCampoItemEnEdicionPlantilla(it.id, 'serieActivo', e.target.value)}
+                                  className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <label className="text-[10px] text-slate-400 block">Cant. Solicitada</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={it.cantidadSolicitada}
+                                onChange={e => actualizarCampoItemEnEdicionPlantilla(it.id, 'cantidadSolicitada', Number(e.target.value))}
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-400 block">Destino</label>
+                              <select
+                                value={it.destino}
+                                onChange={e => actualizarCampoItemEnEdicionPlantilla(it.id, 'destino', e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-1 text-white"
+                              >
+                                <option value="CLIENTE">CLIENTE</option>
+                                <option value="NODO">NODO</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {(!plantillaEnEdicion.items || plantillaEnEdicion.items.length === 0) && (
+                        <p className="text-center text-slate-500 text-xs py-4">Esta plantilla no tiene ítems. Añada al menos uno arriba.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-3 border-t border-slate-800">
+                    <button
+                      onClick={() => setPlantillaEnEdicion(null)}
+                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded text-xs font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={guardarEdicionPlantilla}
+                      className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded text-xs"
+                    >
+                      Guardar Cambios de la Plantilla
+                    </button>
                   </div>
                 </div>
               </div>
