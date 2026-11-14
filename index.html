@@ -482,6 +482,7 @@
       const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
 
       // Filtros y paginación de la Bandeja Global (Admin/Logística)
+      const [filtroCodigoOit, setFiltroCodigoOit] = useState('');
       const [filtroEstado, setFiltroEstado] = useState('TODOS');
       const [filtroCliente, setFiltroCliente] = useState('');
       const [filtroTecnicoId, setFiltroTecnicoId] = useState('TODOS');
@@ -526,6 +527,7 @@
 
       const ordenesFiltradas = ordenes.filter(o => {
         if (o.estado === 'CERRADO_CONCILIADO') return false;
+        if (filtroCodigoOit.trim() && !(o.codigoOit || '').toLowerCase().includes(filtroCodigoOit.trim().toLowerCase())) return false;
         if (filtroEstado !== 'TODOS' && o.estado !== filtroEstado) return false;
         if (filtroTecnicoId !== 'TODOS' && o.tecnicoId !== filtroTecnicoId) return false;
         if (filtroTipoTrabajo !== 'TODOS' && o.tipoTrabajo !== filtroTipoTrabajo) return false;
@@ -552,6 +554,7 @@
       );
 
       const limpiarFiltros = () => {
+        setFiltroCodigoOit('');
         setFiltroEstado('TODOS');
         setFiltroCliente('');
         setFiltroTecnicoId('TODOS');
@@ -2279,7 +2282,17 @@
                   </div>
 
                   {/* FILTROS Y BÚSQUEDA */}
-                  <div className="p-4 border-b border-slate-800 bg-slate-900/40 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                  <div className="p-4 border-b border-slate-800 bg-slate-900/40 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 text-xs">
+                    <div>
+                      <label className="block text-slate-500 mb-1">Código OIT / TK</label>
+                      <input
+                        type="text"
+                        placeholder="Buscar OIT/TK..."
+                        value={filtroCodigoOit}
+                        onChange={e => { setFiltroCodigoOit(e.target.value); setPaginaActual(1); }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-white font-mono"
+                      />
+                    </div>
                     <div>
                       <label className="block text-slate-500 mb-1">Estado</label>
                       <select
