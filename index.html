@@ -575,6 +575,10 @@
       const [mostrarModalConciliados, setMostrarModalConciliados] = useState(false);
       const [buscarConciliados, setBuscarConciliados] = useState('');
 
+      // "Estado de las OITs" / "Lista de OITs por Técnico" (Admin/Logística y Supervisor)
+      const [areaOitsSupervisor, setAreaOitsSupervisor] = useState(null); // null | 'ADMIN_LOGISTICA' | 'TECNICO'
+      const [tecnicosExpandidos, setTecnicosExpandidos] = useState({}); // { [tecnicoId]: boolean }
+
       const tecnicos = usuarios.filter(u => u.rol === 'TECNICO_EJECUTANTE');
       const adminLogisticaUsers = usuarios.filter(u => u.rol === 'ADMIN_LOGISTICA');
 
@@ -642,6 +646,47 @@
         setFiltroFechaHasta('');
         setPaginaActual(1);
       };
+
+      // =========================================================================
+      // "Estado de las OITs" y "Lista de OITs por Técnico" (Admin/Logística y Supervisor)
+      // =========================================================================
+      // Universo de OITs activas a mostrar en estas 2 secciones nuevas, según el rol:
+      // Supervisor -> solo las de su Tipo de Trabajo. Admin/Logística -> todas.
+      // Las CERRADO_CONCILIADO quedan fuera (se archivan en "🗂️ OITs Conciliadas", igual que siempre).
+      const ordenesActivasRolActual = ordenes.filter(o => {
+        if (o.estado === 'CERRADO_CONCILIADO') return false;
+        if (!usuarioAutenticado) return false;
+        if (usuarioAutenticado.rol === 'SUPERVISOR_SOLICITANTE') return o.tipoTrabajo === usuarioAutenticado.tipoTrabajo;
+        return true; // ADMINISTRADOR / ADMIN_LOGISTICA ven todas
+      });
+
+      // "Estado de las OITs": mismos datos de siempre, ordenados de la más reciente a la más antigua.
+      const ordenesEstadoOrdenadas = [...ordenesActivasRolActual].sort((a, b) => {
+        const fa = parsearFechaHoraCompleta(a.fechaSolicitud);
+        const fb = parsearFechaHoraCompleta(b.fechaSolicitud);
+        return (fb ? fb.getTime() : 0) - (fa ? fa.getTime() : 0);
+      });
+
+      // Tarjetas de "Área" del Supervisor: a quién le corresponde actuar ahora.
+      // ADMIN LOGÍSTICA: la solicitud está esperando que Logística la despache o la concilie.
+      // TÉCNICO EJECUTANTE: ya fue despachada y el técnico la tiene en campo.
+      const ordenesAreaAdminLogistica = ordenesActivasRolActual.filter(o =>
+        o.estado === 'SOLICITADO' || o.estado === 'PENDIENTE' || o.estado === 'TRABAJO_FINALIZADO'
+      );
+      const ordenesAreaTecnico = ordenesActivasRolActual.filter(o => o.estado === 'DESPACHADO');
+
+      // "Lista de OITs por Técnico": agrupa las OITs activas por técnico asignado.
+      const listaOitsPorTecnico = (() => {
+        const grupos = {};
+        ordenesActivasRolActual.forEach(o => {
+          const key = o.tecnicoId || 'SIN_ASIGNAR';
+          if (!grupos[key]) {
+            grupos[key] = { tecnicoId: o.tecnicoId || null, tecnicoNombre: o.tecnicoNombre || 'Sin técnico asignado', ordenes: [] };
+          }
+          grupos[key].ordenes.push(o);
+        });
+        return Object.values(grupos).sort((a, b) => b.ordenes.length - a.ordenes.length);
+      })();
 
       // --- SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE ---
       // Ojo: esta suscripción arranca SOLO después de iniciar sesión
@@ -789,9 +834,27 @@
           if (snap.empty) {
             snap = await db.collection('usuarios').where('email', '==', entrada).limit(1).get();
           }
-          if (snap.empty) return null;
-          const doc = snap.docs[0];
-          return { id: doc.id, ...doc.data() };
+          if (!snap.empty) {
+            const doc = snap.docs[0];
+            return { id: doc.id, ...doc.data() };
+          }
+          // No hubo coincidencia en Firestore: permitir, como último recurso,
+          // la cuenta de arranque de emergencia (USUARIOS_INICIALES). Antes
+          // esta cuenta solo se creaba en Firestore si la colección 'usuarios'
+          // llegaba vacía (lo cual nunca pasa en un sistema ya en uso), así
+          // que en la práctica nunca quedaba disponible. Ahora, si coincide,
+          // se crea recién en este momento para que funcione de inmediato y
+          // quede disponible como una cuenta normal desde el próximo login.
+          const bootstrap = USUARIOS_INICIALES.find(u => u.username.toLowerCase() === entrada || u.email.toLowerCase() === entrada);
+          if (bootstrap) {
+            try {
+              await db.collection('usuarios').doc(bootstrap.id).set(bootstrap);
+            } catch (err) {
+              console.error('No se pudo crear la cuenta de arranque de emergencia en Firestore:', err);
+            }
+            return bootstrap;
+          }
+          return null;
         }
         // Fallback sin Firestore (modo local con USUARIOS_INICIALES/localStorage)
         return usuarios.find(u => u.username.toLowerCase() === entrada || u.email.toLowerCase() === entrada) || null;
@@ -2227,6 +2290,24 @@
         return `*${asunto}*\n\n${cuerpo}`;
       };
 
+      // Recordatorio por WhatsApp a un técnico, desde "Lista de OITs por Técnico",
+      // indicando que tiene OIT(s) pendiente(s) de conciliar/cerrar.
+      const notificarPendienteTecnico = (grupoTecnico) => {
+        const tecnicoObj = usuarios.find(u => u.id === grupoTecnico.tecnicoId);
+        const celular = tecnicoObj ? tecnicoObj.celular : null;
+        const enlace = generarEnlaceWhatsApp(celular, construirMensajeWhatsApp(
+          'Recordatorio de OITs pendientes',
+          `Hola ${grupoTecnico.tecnicoNombre}, tienes ${grupoTecnico.ordenes.length} OIT(s) pendiente(s) de conciliar/cerrar:\n` +
+          grupoTecnico.ordenes.map(o => `• ${o.codigoOit} (${o.cliente}) — ${o.estado}`).join('\n') +
+          `\n\nPor favor coordina con Logística para avanzar su conciliación.`
+        ));
+        if (!enlace) {
+          alert(`No se encontró un número de celular registrado para ${grupoTecnico.tecnicoNombre}.`);
+          return;
+        }
+        window.open(enlace, '_blank');
+      };
+
       return (
         <div className="min-h-screen pb-12 dash-bg">
           {/* HEADER */}
@@ -2595,6 +2676,109 @@
                     </div>
                   )}
                 </div>
+
+                {/* Estado de las OITs: vista en tarjetas (alternativa a la tabla de arriba), de la más reciente a la más antigua */}
+                <div className="bg-white p-5 rounded-xl border border-line-soft space-y-3">
+                  <h3 className="text-sm font-bold text-ink-primary">Estado de las OITs</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[550px] overflow-y-auto pr-1">
+                    {ordenesEstadoOrdenadas.map(o => (
+                      <div key={o.id} className="oit-card-bg border border-line-soft p-2.5 rounded-lg">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0">
+                            <span className="font-mono font-bold text-brand-petrol text-xs">{o.codigoOit}</span>
+                            <p className="text-[11px] text-ink-primary font-medium truncate">{o.cliente}</p>
+                            <p className="text-[10px] text-ink-support">Téc: <b className="text-sky-600">{o.tecnicoNombre}</b> · {o.fechaSolicitud}</p>
+                          </div>
+                          <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
+                        </div>
+
+                        <div className="pt-1.5 mt-1.5 border-t border-line-soft flex flex-wrap gap-1 items-center">
+                          {o.estado !== 'TRABAJO_FINALIZADO' && (
+                            <button
+                              onClick={() => abrirModalEdicionOit(o)}
+                              disabled={o.estado === 'SOLICITADO' || o.estado === 'PENDIENTE'}
+                              className={`px-1.5 py-0.5 rounded text-[9px] border transition font-semibold ${(o.estado === 'SOLICITADO' || o.estado === 'PENDIENTE') ? 'bg-white text-ink-support border-line-soft opacity-50 cursor-not-allowed' : 'bg-surface-alt hover:bg-surface-secondary text-brand-petrol border-brand-blue/30'}`}
+                            >
+                              ✏️ Editar
+                            </button>
+                          )}
+                          {(o.estado === 'SOLICITADO' || o.estado === 'PENDIENTE') && (
+                            <button
+                              onClick={() => abrirModalDespacho(o)}
+                              className="bg-brand-blue hover:bg-brand-cyan-bright text-slate-950 font-bold px-1.5 py-0.5 rounded text-[9px] transition"
+                            >
+                              📦 Despachar
+                            </button>
+                          )}
+                          {o.estado === 'TRABAJO_FINALIZADO' && (
+                            <button
+                              onClick={() => abrirModalConciliar(o)}
+                              className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-1.5 py-0.5 rounded text-[9px] transition"
+                            >
+                              📑 Conciliar
+                            </button>
+                          )}
+                          <button onClick={() => setOitParaAuditoria(o)} className="text-sky-600 hover:underline text-[9px] ml-auto">
+                            Historial
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {ordenesEstadoOrdenadas.length === 0 && (
+                      <p className="col-span-full text-center text-ink-support text-xs py-6">No hay OITs activas por ahora.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Lista de OITs por Técnico */}
+                <div className="bg-white p-5 rounded-xl border border-line-soft space-y-3">
+                  <h3 className="text-sm font-bold text-ink-primary">Lista de OITs por Técnico</h3>
+                  <div className="space-y-2">
+                    {listaOitsPorTecnico.map(grupo => (
+                      <div key={grupo.tecnicoId || grupo.tecnicoNombre} className="border border-line-soft rounded-lg p-3">
+                        <div className="flex justify-between items-center gap-2 flex-wrap">
+                          <div>
+                            <p className="text-xs font-bold text-ink-primary">{grupo.tecnicoNombre}</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {Object.entries(grupo.ordenes.reduce((acc, o) => { acc[o.estado] = (acc[o.estado] || 0) + 1; return acc; }, {})).map(([est, n]) => (
+                                <span key={est} className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ESTADO_COLORES[est]}`}>{n} {est}</span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setTecnicosExpandidos(prev => ({ ...prev, [grupo.tecnicoId]: !prev[grupo.tecnicoId] }))}
+                              className="bg-surface-alt hover:bg-surface-secondary text-brand-petrol px-2 py-1 rounded text-[10px] border border-brand-blue/20 font-semibold"
+                            >
+                              {tecnicosExpandidos[grupo.tecnicoId] ? '🔼 Ocultar' : `👁️ Ver (${grupo.ordenes.length})`}
+                            </button>
+                            <button
+                              onClick={() => notificarPendienteTecnico(grupo)}
+                              title="Enviar un recordatorio por WhatsApp a este técnico"
+                              className="bg-emerald-600/10 hover:bg-emerald-600 hover:text-white text-emerald-600 px-2 py-1 rounded text-[10px] border border-emerald-500/30 font-semibold transition"
+                            >
+                              📲 Notificar
+                            </button>
+                          </div>
+                        </div>
+                        {tecnicosExpandidos[grupo.tecnicoId] && (
+                          <div className="mt-2 pt-2 border-t border-line-soft space-y-1">
+                            {grupo.ordenes.map(o => (
+                              <div key={o.id} className="flex justify-between items-center gap-2 text-[11px] text-ink-secondary">
+                                <span className="font-mono text-brand-petrol">{o.codigoOit}</span>
+                                <span className="truncate flex-1">{o.cliente}</span>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {listaOitsPorTecnico.length === 0 && (
+                      <p className="text-center text-ink-support text-xs py-6">No hay técnicos con OITs activas por ahora.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -2616,8 +2800,8 @@
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <form onSubmit={crearSolicitudOit} className="lg:col-span-2 bg-white p-6 rounded-xl border border-line-soft space-y-4">
+                <div className="grid grid-cols-1 gap-6">
+                  <form onSubmit={crearSolicitudOit} className="bg-white p-6 rounded-xl border border-line-soft space-y-4">
                     <div className="border-b border-line-soft pb-3 flex justify-between items-center">
                       <div>
                         <h3 className="text-base font-bold text-ink-primary">📝 Nuevo Requerimiento OIT / TK</h3>
@@ -2776,83 +2960,149 @@
                       🚀 Enviar Pedido a Logística con Disparo de Correo
                     </button>
                   </form>
+                </div>
 
-                  <div className="bg-white p-6 rounded-xl border border-line-soft space-y-4">
-                    <div className="flex justify-between items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-ink-primary">Mis OITs ({usuarioAutenticado.tipoTrabajo})</h3>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setMostrarModalConciliados(true)}
-                          className="text-emerald-600 text-xs hover:underline"
-                        >
-                          🗂️ Conciliadas ({ordenesConciliadas.length})
-                        </button>
-                        <button onClick={exportarExcel} className="text-emerald-600 text-xs hover:underline">Excel</button>
-                      </div>
+                {/* Tarjetas de Área: a qué área le corresponde actuar ahora (solo Supervisor) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setAreaOitsSupervisor('ADMIN_LOGISTICA')}
+                    className="card-bg-blue border border-brand-blue/30 p-4 rounded-xl shadow-lg text-left hover:shadow-xl transition"
+                  >
+                    <span className="text-xs font-semibold text-brand-petrol uppercase tracking-wider">📦 Área: Admin Logística</span>
+                    <p className="text-3xl font-extrabold text-ink-primary mt-1">{ordenesAreaAdminLogistica.length}</p>
+                    <p className="text-[11px] text-ink-support mt-0.5">Solicitadas, pendientes o por conciliar · clic para ver la lista</p>
+                  </button>
+                  <button
+                    onClick={() => setAreaOitsSupervisor('TECNICO')}
+                    className="card-bg-sky border border-sky-500/30 p-4 rounded-xl shadow-lg text-left hover:shadow-xl transition"
+                  >
+                    <span className="text-xs font-semibold text-sky-600 uppercase tracking-wider">🔧 Área: Técnico Ejecutante</span>
+                    <p className="text-3xl font-extrabold text-ink-primary mt-1">{ordenesAreaTecnico.length}</p>
+                    <p className="text-[11px] text-ink-support mt-0.5">Despachadas, en campo · clic para ver la lista</p>
+                  </button>
+                </div>
+
+                {/* Estado de las OITs: mismo detalle de siempre, de la más reciente a la más antigua */}
+                <div className="bg-white p-5 rounded-xl border border-line-soft space-y-3">
+                  <div className="flex justify-between items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-ink-primary">Estado de las OITs ({usuarioAutenticado.tipoTrabajo})</h3>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setMostrarModalConciliados(true)} className="text-emerald-600 text-xs hover:underline">
+                        🗂️ Conciliadas ({ordenesConciliadas.length})
+                      </button>
+                      <button onClick={exportarExcel} className="text-emerald-600 text-xs hover:underline">Excel</button>
                     </div>
+                  </div>
 
-                    {/* Las OITs ya CERRADO_CONCILIADO se ven en la ventana "🗂️ OITs Conciliadas", no aquí. */}
-                    <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
-                      {ordenes.filter(o => o.tipoTrabajo === usuarioAutenticado.tipoTrabajo && o.estado !== 'CERRADO_CONCILIADO').map(o => (
-                        <div key={o.id} className="oit-card-bg border border-line-soft p-3.5 rounded-lg space-y-2">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className="font-mono font-bold text-brand-petrol text-sm">{o.codigoOit}</span>
-                              <p className="text-xs text-ink-primary font-medium">{o.cliente}</p>
-                            </div>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
+                  {/* Las OITs ya CERRADO_CONCILIADO se ven en la ventana "🗂️ OITs Conciliadas", no aquí. */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[550px] overflow-y-auto pr-1">
+                    {ordenesEstadoOrdenadas.map(o => (
+                      <div key={o.id} className="oit-card-bg border border-line-soft p-2.5 rounded-lg">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0">
+                            <span className="font-mono font-bold text-brand-petrol text-xs">{o.codigoOit}</span>
+                            <p className="text-[11px] text-ink-primary font-medium truncate">{o.cliente}</p>
+                            <p className="text-[10px] text-ink-support">Téc: <b className="text-sky-600">{o.tecnicoNombre}</b> · {o.fechaSolicitud}</p>
                           </div>
+                          <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
+                        </div>
 
-                          <div className="text-[11px] text-ink-support space-y-0.5">
-                            <p>Técnico: <b className="text-sky-600">{o.tecnicoNombre}</b></p>
-                            <p>Despachado por: <b className="text-ink-primary">{o.despachadoPorUsuario || 'Pendiente'}</b></p>
-                            <p className="text-[10px] text-ink-support">Fecha: {o.fechaSolicitud}</p>
-                          </div>
+                        <div className="pt-1.5 mt-1.5 border-t border-line-soft flex flex-wrap gap-1 items-center">
+                          <button
+                            onClick={() => abrirModalEdicionOit(o)}
+                            className="bg-surface-alt hover:bg-surface-secondary text-brand-petrol px-1.5 py-0.5 rounded text-[9px] border border-brand-blue/20 font-semibold"
+                          >
+                            ✏️ Editar
+                          </button>
 
-                          <div className="pt-2 border-t border-line-soft flex flex-wrap gap-1.5">
+                          {o.estado !== 'CERRADO_CONCILIADO' && o.estado !== 'CANCELADO' && (
+                            <>
+                              <button
+                                onClick={() => cambiarEstadoSupervisor(o.id, 'PENDIENTE')}
+                                className="bg-rose-600/10 hover:bg-rose-600 hover:text-slate-950 text-rose-600 border border-rose-600/30 px-1.5 py-0.5 rounded text-[9px] font-semibold transition"
+                              >
+                                ⏸️ Pendiente
+                              </button>
+                              <button
+                                onClick={() => cambiarEstadoSupervisor(o.id, 'CANCELADO')}
+                                className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-600 border border-rose-500/30 px-1.5 py-0.5 rounded text-[9px] font-semibold transition"
+                              >
+                                ❌ Cancelar
+                              </button>
+                            </>
+                          )}
+
+                          {o.estado === 'CERRADO_CONCILIADO' && (
                             <button
-                              onClick={() => abrirModalEdicionOit(o)}
+                              onClick={() => exportarPdfActa(o)}
+                              className="bg-surface-alt hover:bg-surface-secondary text-ink-primary px-1.5 py-0.5 rounded text-[9px] border border-line-strong font-semibold"
+                            >
+                              📄 Acta
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => setOitParaAuditoria(o)}
+                            className="text-sky-600 hover:underline text-[9px] ml-auto"
+                          >
+                            Historial
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {ordenesEstadoOrdenadas.length === 0 && (
+                      <p className="col-span-full text-center text-ink-support text-xs py-6">No hay OITs activas por ahora.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Lista de OITs por Técnico */}
+                <div className="bg-white p-5 rounded-xl border border-line-soft space-y-3">
+                  <h3 className="text-sm font-bold text-ink-primary">Lista de OITs por Técnico</h3>
+                  <div className="space-y-2">
+                    {listaOitsPorTecnico.map(grupo => (
+                      <div key={grupo.tecnicoId || grupo.tecnicoNombre} className="border border-line-soft rounded-lg p-3">
+                        <div className="flex justify-between items-center gap-2 flex-wrap">
+                          <div>
+                            <p className="text-xs font-bold text-ink-primary">{grupo.tecnicoNombre}</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {Object.entries(grupo.ordenes.reduce((acc, o) => { acc[o.estado] = (acc[o.estado] || 0) + 1; return acc; }, {})).map(([est, n]) => (
+                                <span key={est} className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ESTADO_COLORES[est]}`}>{n} {est}</span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setTecnicosExpandidos(prev => ({ ...prev, [grupo.tecnicoId]: !prev[grupo.tecnicoId] }))}
                               className="bg-surface-alt hover:bg-surface-secondary text-brand-petrol px-2 py-1 rounded text-[10px] border border-brand-blue/20 font-semibold"
                             >
-                              ✏️ Editar Ítems
+                              {tecnicosExpandidos[grupo.tecnicoId] ? '🔼 Ocultar' : `👁️ Ver (${grupo.ordenes.length})`}
                             </button>
-
-                            {o.estado !== 'CERRADO_CONCILIADO' && o.estado !== 'CANCELADO' && (
-                              <>
-                                <button
-                                  onClick={() => cambiarEstadoSupervisor(o.id, 'PENDIENTE')}
-                                  className="bg-rose-600/10 hover:bg-rose-600 hover:text-slate-950 text-rose-600 border border-rose-600/30 px-2 py-1 rounded text-[10px] font-semibold transition"
-                                >
-                                  ⏸️ Pendiente
-                                </button>
-                                <button
-                                  onClick={() => cambiarEstadoSupervisor(o.id, 'CANCELADO')}
-                                  className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-600 border border-rose-500/30 px-2 py-1 rounded text-[10px] font-semibold transition"
-                                >
-                                  ❌ Cancelar
-                                </button>
-                              </>
-                            )}
-
-                            {o.estado === 'CERRADO_CONCILIADO' && (
-                              <button
-                                onClick={() => exportarPdfActa(o)}
-                                className="bg-surface-alt hover:bg-surface-secondary text-ink-primary px-2 py-1 rounded text-[10px] border border-line-strong font-semibold"
-                              >
-                                📄 Acta
-                              </button>
-                            )}
-
                             <button
-                              onClick={() => setOitParaAuditoria(o)}
-                              className="text-sky-600 hover:underline text-[10px] ml-auto self-center"
+                              onClick={() => notificarPendienteTecnico(grupo)}
+                              title="Enviar un recordatorio por WhatsApp a este técnico"
+                              className="bg-emerald-600/10 hover:bg-emerald-600 hover:text-white text-emerald-600 px-2 py-1 rounded text-[10px] border border-emerald-500/30 font-semibold transition"
                             >
-                              Ver Historial
+                              📲 Notificar
                             </button>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        {tecnicosExpandidos[grupo.tecnicoId] && (
+                          <div className="mt-2 pt-2 border-t border-line-soft space-y-1">
+                            {grupo.ordenes.map(o => (
+                              <div key={o.id} className="flex justify-between items-center gap-2 text-[11px] text-ink-secondary">
+                                <span className="font-mono text-brand-petrol">{o.codigoOit}</span>
+                                <span className="truncate flex-1">{o.cliente}</span>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {listaOitsPorTecnico.length === 0 && (
+                      <p className="text-center text-ink-support text-xs py-6">No hay técnicos con OITs activas por ahora.</p>
+                    )}
                   </div>
                 </div>
 
@@ -3796,6 +4046,43 @@
                       <p className="text-center text-ink-support text-xs py-8">
                         {ordenesConciliadas.length === 0 ? 'Todavía no hay OITs conciliadas.' : 'Ninguna coincide con la búsqueda.'}
                       </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: Lista de OITs por Área (desde las tarjetas de Área del Supervisor) */}
+            {areaOitsSupervisor && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setAreaOitsSupervisor(null)}>
+                <div className="bg-white border border-line-strong rounded-xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="border-b border-line-soft pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-ink-primary">
+                        {areaOitsSupervisor === 'ADMIN_LOGISTICA' ? '📦 OITs en Área: Admin Logística' : '🔧 OITs en Área: Técnico Ejecutante'}
+                      </h3>
+                      <p className="text-xs text-ink-support">
+                        {areaOitsSupervisor === 'ADMIN_LOGISTICA'
+                          ? 'Solicitadas, pendientes o esperando conciliación por parte de Logística.'
+                          : 'Despachadas y actualmente en manos del técnico en campo.'}
+                      </p>
+                    </div>
+                    <button onClick={() => setAreaOitsSupervisor(null)} className="text-ink-support hover:text-ink-primary text-lg">✕</button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(areaOitsSupervisor === 'ADMIN_LOGISTICA' ? ordenesAreaAdminLogistica : ordenesAreaTecnico).map(o => (
+                      <div key={o.id} className="oit-card-bg border border-line-soft p-3 rounded-lg flex justify-between items-center gap-2">
+                        <div>
+                          <span className="font-mono font-bold text-brand-petrol text-xs">{o.codigoOit}</span>
+                          <p className="text-[11px] text-ink-primary">{o.cliente}</p>
+                          <p className="text-[10px] text-ink-support">Téc: <b className="text-sky-600">{o.tecnicoNombre}</b> · {o.fechaSolicitud}</p>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded shrink-0 ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
+                      </div>
+                    ))}
+                    {(areaOitsSupervisor === 'ADMIN_LOGISTICA' ? ordenesAreaAdminLogistica : ordenesAreaTecnico).length === 0 && (
+                      <p className="text-center text-ink-support text-xs py-8">No hay OITs en esta área por ahora.</p>
                     )}
                   </div>
                 </div>
