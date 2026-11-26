@@ -518,6 +518,7 @@
       const [plEditItemCat, setPlEditItemCat] = useState('MATERIAL');
       const [plEditItemDesc, setPlEditItemDesc] = useState('');
       const [plEditItemSerie, setPlEditItemSerie] = useState('');
+      const [plEditItemUnidad, setPlEditItemUnidad] = useState('UND');
       const [plEditItemCant, setPlEditItemCant] = useState(1);
       const [plEditItemDestino, setPlEditItemDestino] = useState('CLIENTE');
 
@@ -1420,13 +1421,17 @@
       // --- OPERACIONES OIT ---
       const agregarItemBorrador = () => {
         if (!itemDesc.trim()) return alert('Ingrese la descripción');
+        const cantidadNum = Number(itemCant);
+        if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
+          return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
+        }
         const nuevo = {
           id: Date.now().toString(),
           categoria: tabActiva,
           descripcion: itemDesc,
           serieActivo: itemSerie,
-          unidad: itemUnidad,
-          cantidadSolicitada: Number(itemCant),
+          unidad: tabActiva === 'MATERIAL' ? itemUnidad : 'UND',
+          cantidadSolicitada: cantidadNum,
           destino: itemDestino,
           cantidadInstalada: 0,
           cantidadDevuelta: 0,
@@ -1435,6 +1440,7 @@
         setItemsBorrador([...itemsBorrador, nuevo]);
         setItemDesc('');
         setItemSerie('');
+        setItemUnidad('UND');
         setItemCant(1);
       };
 
@@ -1493,19 +1499,24 @@
         setPlEditItemCat('MATERIAL');
         setPlEditItemDesc('');
         setPlEditItemSerie('');
+        setPlEditItemUnidad('UND');
         setPlEditItemCant(1);
         setPlEditItemDestino('CLIENTE');
       };
 
       const agregarItemEnEdicionPlantilla = () => {
         if (!plEditItemDesc.trim()) return alert('Ingrese la descripción del ítem');
+        const cantidadNum = Number(plEditItemCant);
+        if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
+          return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
+        }
         const nuevo = {
           id: Date.now().toString(),
           categoria: plEditItemCat,
           descripcion: plEditItemDesc,
           serieActivo: plEditItemSerie,
-          unidad: 'UND',
-          cantidadSolicitada: Number(plEditItemCant),
+          unidad: plEditItemCat === 'MATERIAL' ? plEditItemUnidad : 'UND',
+          cantidadSolicitada: cantidadNum,
           destino: plEditItemDestino,
           cantidadInstalada: 0,
           cantidadDevuelta: 0,
@@ -1514,6 +1525,7 @@
         setPlantillaEnEdicion({ ...plantillaEnEdicion, items: [...(plantillaEnEdicion.items || []), nuevo] });
         setPlEditItemDesc('');
         setPlEditItemSerie('');
+        setPlEditItemUnidad('UND');
         setPlEditItemCant(1);
       };
 
@@ -1638,13 +1650,17 @@
 
       const agregarItemEnEdicionOit = () => {
         if (!editItemDesc.trim()) return alert('Ingrese descripción del ítem');
+        const cantidadNum = Number(editItemCant);
+        if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
+          return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
+        }
         const nuevo = {
           id: Date.now().toString(),
           categoria: editItemCat,
           descripcion: editItemDesc,
           serieActivo: editItemSerie,
-          unidad: editItemUnidad,
-          cantidadSolicitada: Number(editItemCant),
+          unidad: editItemCat === 'MATERIAL' ? editItemUnidad : 'UND',
+          cantidadSolicitada: cantidadNum,
           destino: editItemDestino,
           cantidadInstalada: 0,
           cantidadDevuelta: 0,
@@ -1656,6 +1672,7 @@
         });
         setEditItemDesc('');
         setEditItemSerie('');
+        setEditItemUnidad('UND');
         setEditItemCant(1);
       };
 
@@ -1741,13 +1758,17 @@
 
       const agregarItemDespacho = () => {
         if (!despachoItemDesc.trim()) return alert('Ingrese la descripción del ítem');
+        const cantidadNum = Number(despachoItemCant);
+        if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
+          return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
+        }
         const nuevo = {
           id: Date.now().toString(),
           categoria: despachoTabActiva,
           descripcion: despachoItemDesc,
           serieActivo: despachoItemSerie,
-          unidad: despachoItemUnidad,
-          cantidadSolicitada: Number(despachoItemCant),
+          unidad: despachoTabActiva === 'MATERIAL' ? despachoItemUnidad : 'UND',
+          cantidadSolicitada: cantidadNum,
           destino: despachoItemDestino,
           cantidadInstalada: 0,
           cantidadDevuelta: 0,
@@ -1756,6 +1777,7 @@
         setOitParaDespachar({ ...oitParaDespachar, items: [...oitParaDespachar.items, nuevo] });
         setDespachoItemDesc('');
         setDespachoItemSerie('');
+        setDespachoItemUnidad('UND');
         setDespachoItemCant(1);
       };
 
@@ -1920,11 +1942,15 @@
       // --- EQUIPO DE BAJA (dentro de Conciliación) ---
       const agregarEquipoBaja = () => {
         if (!ebDescripcion.trim()) return alert('Ingrese la descripción del equipo de baja');
+        const ebCantidadNum = Number(ebCantidad);
+        if (!Number.isFinite(ebCantidadNum) || ebCantidadNum < 1) {
+          return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
+        }
         const nuevo = {
           id: Date.now().toString(),
           descripcion: ebDescripcion,
           codigo: ebCodigo,
-          cantidad: Number(ebCantidad) || 1,
+          cantidad: ebCantidadNum,
           deDonde: ebDeDonde,
           estado: ebEstado
         };
@@ -2896,7 +2922,7 @@
                             />
                             <datalist id="datalist-catalogo-form">{opcionesCatalogo(tabActiva)}</datalist>
                           </div>
-                          {tabActiva !== 'MATERIAL' && (
+                          {tabActiva !== 'MATERIAL' ? (
                             <div>
                               <label className="block text-ink-support mb-1">{etiquetaSerieCategoria(tabActiva)}</label>
                               <input
@@ -2906,6 +2932,18 @@
                                 onChange={e => setItemSerie(e.target.value)}
                                 className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
                               />
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="block text-ink-support mb-1">Unidad de Medida</label>
+                              <select
+                                value={itemUnidad}
+                                onChange={e => setItemUnidad(e.target.value)}
+                                className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
+                              >
+                                <option value="UND">UND (Unidad)</option>
+                                <option value="MTS">MTS (Metros)</option>
+                              </select>
                             </div>
                           )}
                           <div>
@@ -3266,7 +3304,7 @@
                         />
                         <datalist id="datalist-catalogo-editoit">{opcionesCatalogo(editItemCat)}</datalist>
                       </div>
-                      {editItemCat !== 'MATERIAL' && (
+                      {editItemCat !== 'MATERIAL' ? (
                         <div>
                           <label className="block text-ink-support mb-0.5">{etiquetaSerieCategoria(editItemCat)}</label>
                           <input
@@ -3276,6 +3314,18 @@
                             onChange={e => setEditItemSerie(e.target.value)}
                             className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
                           />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-ink-support mb-0.5">Unidad</label>
+                          <select
+                            value={editItemUnidad}
+                            onChange={e => setEditItemUnidad(e.target.value)}
+                            className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
+                          >
+                            <option value="UND">UND (Unidad)</option>
+                            <option value="MTS">MTS (Metros)</option>
+                          </select>
                         </div>
                       )}
                       <div>
@@ -3335,7 +3385,7 @@
                                 className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                               />
                             </div>
-                            {it.categoria !== 'MATERIAL' && (
+                            {it.categoria !== 'MATERIAL' ? (
                               <div>
                                 <label className="text-[10px] text-ink-support block">{etiquetaSerieCategoria(it.categoria)}</label>
                                 <input
@@ -3345,6 +3395,18 @@
                                   className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                                 />
                               </div>
+                            ) : (
+                              <div>
+                                <label className="text-[10px] text-ink-support block">Unidad</label>
+                                <select
+                                  value={it.unidad || 'UND'}
+                                  onChange={e => actualizarCampoItemEnEdicion(it.id, 'unidad', e.target.value)}
+                                  className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
+                                >
+                                  <option value="UND">UND (Unidad)</option>
+                                  <option value="MTS">MTS (Metros)</option>
+                                </select>
+                              </div>
                             )}
                             <div>
                               <label className="text-[10px] text-ink-support block">Cant. Solicitada</label>
@@ -3352,7 +3414,7 @@
                                 type="number"
                                 min="1"
                                 value={it.cantidadSolicitada}
-                                onChange={e => actualizarCampoItemEnEdicion(it.id, 'cantidadSolicitada', Number(e.target.value))}
+                                onChange={e => actualizarCampoItemEnEdicion(it.id, 'cantidadSolicitada', Math.max(1, Number(e.target.value) || 1))}
                                 className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                               />
                             </div>
@@ -3452,9 +3514,10 @@
                             <label className="block text-ink-support mb-1">Cant. Instalada (Cliente)</label>
                             <input
                               type="number"
+                              min="0"
                               value={it.cantidadInstalada || 0}
                               onChange={e => {
-                                const val = Number(e.target.value);
+                                const val = Math.max(0, Number(e.target.value) || 0);
                                 const newItems = [...oitParaLiquidar.items];
                                 newItems[idx].cantidadInstalada = val;
                                 // Auto-calcula el sobrante/devuelto = Solicitado - Instalado (sin bajar de 0)
@@ -3469,9 +3532,10 @@
                             <label className="block text-ink-support mb-1">Cant. Sobrante / Devuelta</label>
                             <input
                               type="number"
+                              min="0"
                               value={it.cantidadDevuelta || 0}
                               onChange={e => {
-                                const val = Number(e.target.value);
+                                const val = Math.max(0, Number(e.target.value) || 0);
                                 const newItems = [...oitParaLiquidar.items];
                                 newItems[idx].cantidadDevuelta = val;
                                 setOitParaLiquidar({ ...oitParaLiquidar, items: newItems });
@@ -3648,7 +3712,7 @@
                           />
                           <datalist id="datalist-catalogo-despacho">{opcionesCatalogo(despachoTabActiva)}</datalist>
                         </div>
-                        {despachoTabActiva !== 'MATERIAL' && (
+                        {despachoTabActiva !== 'MATERIAL' ? (
                           <div>
                             <label className="block text-ink-support mb-1">{etiquetaSerieCategoria(despachoTabActiva)}</label>
                             <input
@@ -3658,6 +3722,18 @@
                               onChange={e => setDespachoItemSerie(e.target.value)}
                               className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
                             />
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-ink-support mb-1">Unidad</label>
+                            <select
+                              value={despachoItemUnidad}
+                              onChange={e => setDespachoItemUnidad(e.target.value)}
+                              className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
+                            >
+                              <option value="UND">UND (Unidad)</option>
+                              <option value="MTS">MTS (Metros)</option>
+                            </select>
                           </div>
                         )}
                         <div>
@@ -3719,7 +3795,7 @@
                                 className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                               />
                             </div>
-                            {it.categoria !== 'MATERIAL' && (
+                            {it.categoria !== 'MATERIAL' ? (
                               <div>
                                 <label className="text-[10px] text-ink-support block">{etiquetaSerieCategoria(it.categoria)}</label>
                                 <input
@@ -3729,6 +3805,18 @@
                                   className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                                 />
                               </div>
+                            ) : (
+                              <div>
+                                <label className="text-[10px] text-ink-support block">Unidad</label>
+                                <select
+                                  value={it.unidad || 'UND'}
+                                  onChange={e => actualizarCampoItemDespacho(it.id, 'unidad', e.target.value)}
+                                  className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
+                                >
+                                  <option value="UND">UND (Unidad)</option>
+                                  <option value="MTS">MTS (Metros)</option>
+                                </select>
+                              </div>
                             )}
                             <div>
                               <label className="text-[10px] text-ink-support block">Cant. Solicitada</label>
@@ -3736,7 +3824,7 @@
                                 type="number"
                                 min="1"
                                 value={it.cantidadSolicitada}
-                                onChange={e => actualizarCampoItemDespacho(it.id, 'cantidadSolicitada', Number(e.target.value))}
+                                onChange={e => actualizarCampoItemDespacho(it.id, 'cantidadSolicitada', Math.max(1, Number(e.target.value) || 1))}
                                 className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                               />
                             </div>
@@ -3826,8 +3914,9 @@
                                 <label className="text-[10px] text-ink-support block">Cant. Instalada</label>
                                 <input
                                   type="number"
+                                  min="0"
                                   value={it.cantidadInstalada || 0}
-                                  onChange={e => actualizarCampoItemConciliar(idx, 'cantidadInstalada', Number(e.target.value))}
+                                  onChange={e => actualizarCampoItemConciliar(idx, 'cantidadInstalada', Math.max(0, Number(e.target.value) || 0))}
                                   className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                                 />
                               </div>
@@ -3835,8 +3924,9 @@
                                 <label className="text-[10px] text-ink-support block">Cant. Sobrante / Devuelta</label>
                                 <input
                                   type="number"
+                                  min="0"
                                   value={it.cantidadDevuelta || 0}
-                                  onChange={e => actualizarCampoItemConciliar(idx, 'cantidadDevuelta', Number(e.target.value))}
+                                  onChange={e => actualizarCampoItemConciliar(idx, 'cantidadDevuelta', Math.max(0, Number(e.target.value) || 0))}
                                   className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                                 />
                               </div>
@@ -4487,7 +4577,7 @@
                         />
                         <datalist id="datalist-catalogo-editplantilla">{opcionesCatalogo(plEditItemCat)}</datalist>
                       </div>
-                      {plEditItemCat !== 'MATERIAL' && (
+                      {plEditItemCat !== 'MATERIAL' ? (
                         <div>
                           <label className="block text-ink-support mb-0.5">{etiquetaSerieCategoria(plEditItemCat)}</label>
                           <input
@@ -4497,6 +4587,18 @@
                             onChange={e => setPlEditItemSerie(e.target.value)}
                             className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
                           />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-ink-support mb-0.5">Unidad</label>
+                          <select
+                            value={plEditItemUnidad}
+                            onChange={e => setPlEditItemUnidad(e.target.value)}
+                            className="w-full bg-white border border-line-strong rounded p-1.5 text-ink-primary"
+                          >
+                            <option value="UND">UND (Unidad)</option>
+                            <option value="MTS">MTS (Metros)</option>
+                          </select>
                         </div>
                       )}
                       <div>
@@ -4556,7 +4658,7 @@
                                 className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                               />
                             </div>
-                            {it.categoria !== 'MATERIAL' && (
+                            {it.categoria !== 'MATERIAL' ? (
                               <div>
                                 <label className="text-[10px] text-ink-support block">{etiquetaSerieCategoria(it.categoria)}</label>
                                 <input
@@ -4566,6 +4668,18 @@
                                   className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                                 />
                               </div>
+                            ) : (
+                              <div>
+                                <label className="text-[10px] text-ink-support block">Unidad</label>
+                                <select
+                                  value={it.unidad || 'UND'}
+                                  onChange={e => actualizarCampoItemEnEdicionPlantilla(it.id, 'unidad', e.target.value)}
+                                  className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
+                                >
+                                  <option value="UND">UND (Unidad)</option>
+                                  <option value="MTS">MTS (Metros)</option>
+                                </select>
+                              </div>
                             )}
                             <div>
                               <label className="text-[10px] text-ink-support block">Cant. Solicitada</label>
@@ -4573,7 +4687,7 @@
                                 type="number"
                                 min="1"
                                 value={it.cantidadSolicitada}
-                                onChange={e => actualizarCampoItemEnEdicionPlantilla(it.id, 'cantidadSolicitada', Number(e.target.value))}
+                                onChange={e => actualizarCampoItemEnEdicionPlantilla(it.id, 'cantidadSolicitada', Math.max(1, Number(e.target.value) || 1))}
                                 className="w-full bg-white border border-line-strong rounded p-1 text-ink-primary"
                               />
                             </div>
