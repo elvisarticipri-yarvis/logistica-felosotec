@@ -542,6 +542,8 @@
 
       // Modal Conciliación (Admin/Logística)
       const [oitParaConciliar, setOitParaConciliar] = useState(null);
+      const [oitParaDevolver, setOitParaDevolver] = useState(null);
+      const [comentarioDevolucion, setComentarioDevolucion] = useState('');
 
       // Equipo de Baja (dentro del modal de Conciliación, lo llena Admin/Logística)
       const [ebDescripcion, setEbDescripcion] = useState('');
@@ -1425,6 +1427,9 @@
         if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
           return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
         }
+        if (tabActiva === 'EQUIPO' && !itemSerie.trim()) {
+          return alert('Para la categoría EQUIPO debe registrar el Número de Serie / Activo (obligatorio para su trazabilidad).');
+        }
         const nuevo = {
           id: Date.now().toString(),
           categoria: tabActiva,
@@ -1509,6 +1514,9 @@
         const cantidadNum = Number(plEditItemCant);
         if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
           return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
+        }
+        if (plEditItemCat === 'EQUIPO' && !plEditItemSerie.trim()) {
+          return alert('Para la categoría EQUIPO debe registrar el Número de Serie / Activo (obligatorio para su trazabilidad).');
         }
         const nuevo = {
           id: Date.now().toString(),
@@ -1654,6 +1662,9 @@
         if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
           return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
         }
+        if (editItemCat === 'EQUIPO' && !editItemSerie.trim()) {
+          return alert('Para la categoría EQUIPO debe registrar el Número de Serie / Activo (obligatorio para su trazabilidad).');
+        }
         const nuevo = {
           id: Date.now().toString(),
           categoria: editItemCat,
@@ -1761,6 +1772,9 @@
         const cantidadNum = Number(despachoItemCant);
         if (!Number.isFinite(cantidadNum) || cantidadNum < 1) {
           return alert('La cantidad debe ser un número mayor a cero (no se permiten números negativos).');
+        }
+        if (despachoTabActiva === 'EQUIPO' && !despachoItemSerie.trim()) {
+          return alert('Para la categoría EQUIPO debe registrar el Número de Serie / Activo (obligatorio para su trazabilidad).');
         }
         const nuevo = {
           id: Date.now().toString(),
@@ -2013,6 +2027,57 @@
         });
 
         alert(`[${ahora}] OIT ${ordenActualizada.codigoOit} Conciliada y Cerrada.`);
+      };
+
+      // --- DEVOLUCIÓN AL TÉCNICO (Admin/Logística detecta un faltante o error al revisar/conciliar) ---
+      const abrirModalDevolucion = (ord) => {
+        setComentarioDevolucion('');
+        setOitParaDevolver(ord);
+      };
+
+      const confirmarDevolucionTecnico = async () => {
+        if (!comentarioDevolucion.trim()) {
+          return alert('Ingrese el comentario/observación explicando qué falta o qué está mal, para que el técnico sepa qué corregir.');
+        }
+        const ahora = formatearFechaHora();
+        const responsableNombre = usuarioAutenticado.nombre;
+        const responsableEmail = usuarioAutenticado.email || 'aarana@felosotec.com';
+        const comentario = comentarioDevolucion.trim();
+        const ord = oitParaDevolver;
+
+        const ordenActualizada = {
+          ...ord,
+          estado: 'DESPACHADO',
+          historialMovimientos: [
+            ...ord.historialMovimientos,
+            { fechaHora: ahora, usuario: responsableNombre, accion: `🔁 DEVUELTO AL TÉCNICO por Logística: ${comentario}` }
+          ]
+        };
+
+        await persistirOrdenFirestore(ordenActualizada);
+        setOrdenes(ordenes.map(o => o.id === ordenActualizada.id ? ordenActualizada : o));
+        setOitParaDevolver(null);
+        // Si la Conciliación de esta misma OIT estaba abierta, ciérrala también.
+        if (oitParaConciliar && oitParaConciliar.id === ordenActualizada.id) setOitParaConciliar(null);
+
+        const tecnicoDestObj = usuarios.find(u => u.id === ordenActualizada.tecnicoId);
+        const celularTecnico = tecnicoDestObj ? tecnicoDestObj.celular : buscarCelularPorEmail(ordenActualizada.tecnicoEmail);
+
+        const mensajeCompleto = `Estimado ${ordenActualizada.tecnicoNombre},\n\nLa OIT/TK ${ordenActualizada.codigoOit} (${ordenActualizada.cliente}) fue DEVUELTA por el Área de Logística para su corrección, antes de continuar con la conciliación.\n\nOBSERVACIÓN DE LOGÍSTICA:\n"${comentario}"\n\n- Responsable: ${responsableNombre}\n- Fecha: ${ahora}\n\nPor favor revise y vuelva a declarar su Liquidación de Campo ("🏁 Declarar Trabajo y Responder Correo") corrigiendo lo observado.`;
+
+        const mensajeWhatsAppSlim = `⚠️ La OIT/TK *${ordenActualizada.codigoOit}* (${ordenActualizada.cliente}) fue *DEVUELTA* por Logística.\nObservación: "${comentario}"\nResponsable: ${responsableNombre}\n\nPor favor corrija y vuelva a declarar su Liquidación de Campo.`;
+
+        dispararNotificacionCorreo({
+          remitente: responsableEmail,
+          para: ordenActualizada.tecnicoEmail,
+          cc: `${ordenActualizada.supervisorEmail}, ${responsableEmail}`,
+          asunto: `Re: Solicitud de Equipos y/o Materiales (${ordenActualizada.codigoOit} y ${ordenActualizada.cliente}) - DEVUELTA PARA CORRECCIÓN`,
+          mensaje: mensajeCompleto,
+          mensajeWhatsApp: mensajeWhatsAppSlim,
+          whatsappDestinoCelular: celularTecnico
+        });
+
+        alert(`[${ahora}] OIT ${ordenActualizada.codigoOit} devuelta al técnico con observación.`);
       };
 
       // Exportar Excel
@@ -2586,6 +2651,14 @@
                                   </span>
                                 ) : null;
                               })()}
+                              {(() => {
+                                const ultimoMov = ord.historialMovimientos && ord.historialMovimientos[ord.historialMovimientos.length - 1];
+                                return ultimoMov && ultimoMov.accion && ultimoMov.accion.startsWith('🔁 DEVUELTO AL TÉCNICO') ? (
+                                  <span className="inline-block mt-1 bg-rose-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded animate-pulse">
+                                    🔁 DEVUELTO AL TÉCNICO
+                                  </span>
+                                ) : null;
+                              })()}
                             </td>
                             <td className="p-4">
                               <p className="font-semibold text-ink-primary">{ord.cliente}</p>
@@ -2610,9 +2683,12 @@
                             <td className="p-4">
                               <div className="space-y-1">
                                 {ord.items?.map((i, idx) => (
-                                  <div key={idx} className="flex items-center gap-1.5 text-[11px]">
+                                  <div key={idx} className="flex items-center gap-1.5 text-[11px] flex-wrap">
                                     <span className="bg-surface-alt text-brand-blue px-1 py-0.2 rounded font-mono text-[9px]">{i.categoria[0]}</span>
                                     <span>{i.descripcion}</span>
+                                    {i.serieActivo ? (
+                                      <span className="text-amber-700 font-mono text-[9px] bg-amber-500/10 px-1 rounded">S/N: {i.serieActivo}</span>
+                                    ) : null}
                                     <span className="text-ink-support font-bold">x{i.cantidadSolicitada} {i.unidad}</span>
                                     {ord.estado !== 'SOLICITADO' && (
                                       <span className="text-emerald-600 font-mono text-[10px]">(Inst: {i.cantidadInstalada || 0} | Dev: {i.cantidadDevuelta || 0})</span>
@@ -2656,6 +2732,15 @@
                                   className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-2.5 py-1.5 rounded text-[11px] transition"
                                 >
                                   📑 Conciliar
+                                </button>
+                              )}
+                              {ord.estado === 'TRABAJO_FINALIZADO' && (
+                                <button
+                                  onClick={() => abrirModalDevolucion(ord)}
+                                  title="Devolver al técnico con una observación, si algo falta o está mal"
+                                  className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-600 border border-rose-500/30 font-bold px-2.5 py-1.5 rounded text-[11px] transition"
+                                >
+                                  ↩️ Devolver
                                 </button>
                               )}
                               {/* El botón "Acta" ya no aparece aquí: solo se ve en la ventana
@@ -2744,6 +2829,15 @@
                               📑 Conciliar
                             </button>
                           )}
+                          {o.estado === 'TRABAJO_FINALIZADO' && (
+                            <button
+                              onClick={() => abrirModalDevolucion(o)}
+                              title="Devolver al técnico con una observación"
+                              className="bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-600 border border-rose-500/30 font-bold px-1.5 py-0.5 rounded text-[9px] transition"
+                            >
+                              ↩️ Devolver
+                            </button>
+                          )}
                           <button onClick={() => setOitParaAuditoria(o)} className="text-sky-600 hover:underline text-[9px] ml-auto">
                             Historial
                           </button>
@@ -2793,6 +2887,12 @@
                               <div key={o.id} className="flex justify-between items-center gap-2 text-[11px] text-ink-secondary">
                                 <span className="font-mono text-brand-petrol">{o.codigoOit}</span>
                                 <span className="truncate flex-1">{o.cliente}</span>
+                                {(() => {
+                                  const ultimoMov = o.historialMovimientos && o.historialMovimientos[o.historialMovimientos.length - 1];
+                                  return ultimoMov && ultimoMov.accion && ultimoMov.accion.startsWith('🔁 DEVUELTO AL TÉCNICO') ? (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 bg-rose-600 text-white animate-pulse">🔁 DEVUELTO</span>
+                                  ) : null;
+                                })()}
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
                               </div>
                             ))}
@@ -2924,7 +3024,7 @@
                           </div>
                           {tabActiva !== 'MATERIAL' ? (
                             <div>
-                              <label className="block text-ink-support mb-1">{etiquetaSerieCategoria(tabActiva)}</label>
+                              <label className="block text-ink-support mb-1">{etiquetaSerieCategoria(tabActiva)}{tabActiva === 'EQUIPO' && <span className="text-rose-600"> *</span>}</label>
                               <input
                                 type="text"
                                 placeholder="Ej. H3C-99281"
@@ -3131,6 +3231,12 @@
                               <div key={o.id} className="flex justify-between items-center gap-2 text-[11px] text-ink-secondary">
                                 <span className="font-mono text-brand-petrol">{o.codigoOit}</span>
                                 <span className="truncate flex-1">{o.cliente}</span>
+                                {(() => {
+                                  const ultimoMov = o.historialMovimientos && o.historialMovimientos[o.historialMovimientos.length - 1];
+                                  return ultimoMov && ultimoMov.accion && ultimoMov.accion.startsWith('🔁 DEVUELTO AL TÉCNICO') ? (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 bg-rose-600 text-white animate-pulse">🔁 DEVUELTO</span>
+                                  ) : null;
+                                })()}
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${ESTADO_COLORES[o.estado]}`}>{o.estado}</span>
                               </div>
                             ))}
@@ -3185,13 +3291,22 @@
                         </span>
                       </div>
 
+                      {(() => {
+                        const ultimoMov = o.historialMovimientos && o.historialMovimientos[o.historialMovimientos.length - 1];
+                        return ultimoMov && ultimoMov.accion && ultimoMov.accion.startsWith('🔁 DEVUELTO AL TÉCNICO') ? (
+                          <div className="bg-rose-500/10 border border-rose-500/40 rounded p-2 text-[11px] text-rose-700">
+                            <b>🔁 DEVUELTO por Logística:</b> {ultimoMov.accion.replace('🔁 DEVUELTO AL TÉCNICO por Logística: ', '')}
+                          </div>
+                        ) : null;
+                      })()}
+
                       <div className="border-t border-line-soft pt-2 space-y-1">
                         <p className="text-[11px] text-ink-support">Supervisor: <b className="text-ink-primary">{o.supervisorNombre}</b></p>
                         <p className="text-[11px] text-ink-support">Despachado por: <b className="text-emerald-600">{o.despachadoPorUsuario || 'Pendiente'}</b></p>
                         <p className="text-[11px] font-semibold text-ink-support mt-2">Materiales y Equipos:</p>
                         {o.items?.map((it, idx) => (
                           <p key={idx} className="text-[11px] text-ink-secondary">
-                            • [{it.categoria[0]}] {it.descripcion} (Cant: {it.cantidadSolicitada} {it.unidad})
+                            • [{it.categoria[0]}] {it.descripcion}{it.serieActivo ? ` — S/N: ${it.serieActivo}` : ''} (Cant: {it.cantidadSolicitada} {it.unidad})
                           </p>
                         ))}
                       </div>
@@ -3306,7 +3421,7 @@
                       </div>
                       {editItemCat !== 'MATERIAL' ? (
                         <div>
-                          <label className="block text-ink-support mb-0.5">{etiquetaSerieCategoria(editItemCat)}</label>
+                          <label className="block text-ink-support mb-0.5">{etiquetaSerieCategoria(editItemCat)}{editItemCat === 'EQUIPO' && <span className="text-rose-600"> *</span>}</label>
                           <input
                             type="text"
                             placeholder="Ej. H3C-99281"
@@ -3501,11 +3616,20 @@
                     <button onClick={() => setOitParaLiquidar(null)} className="text-ink-support hover:text-ink-primary text-lg">✕</button>
                   </div>
 
+                  {(() => {
+                    const ultimoMov = oitParaLiquidar.historialMovimientos && oitParaLiquidar.historialMovimientos[oitParaLiquidar.historialMovimientos.length - 1];
+                    return ultimoMov && ultimoMov.accion && ultimoMov.accion.startsWith('🔁 DEVUELTO AL TÉCNICO') ? (
+                      <div className="bg-rose-500/10 border border-rose-500/40 rounded p-3 text-xs text-rose-700">
+                        <b>🔁 Esta OIT fue devuelta por Logística.</b> {ultimoMov.accion.replace('🔁 DEVUELTO AL TÉCNICO por Logística: ', '')}
+                      </div>
+                    ) : null;
+                  })()}
+
                   <div className="space-y-4">
                     {oitParaLiquidar.items?.map((it, idx) => (
                       <div key={it.id} className="bg-white p-3 rounded-lg border border-line-soft space-y-2 text-xs">
                         <div className="flex justify-between">
-                          <span className="font-bold text-brand-petrol">[{it.categoria}] {it.descripcion}</span>
+                          <span className="font-bold text-brand-petrol">[{it.categoria}] {it.descripcion}{it.serieActivo ? ` — S/N: ${it.serieActivo}` : ''}</span>
                           <span className="text-lime-400 font-extrabold">Despachado: {it.cantidadSolicitada} {it.unidad}</span>
                         </div>
 
@@ -3714,7 +3838,7 @@
                         </div>
                         {despachoTabActiva !== 'MATERIAL' ? (
                           <div>
-                            <label className="block text-ink-support mb-1">{etiquetaSerieCategoria(despachoTabActiva)}</label>
+                            <label className="block text-ink-support mb-1">{etiquetaSerieCategoria(despachoTabActiva)}{despachoTabActiva === 'EQUIPO' && <span className="text-rose-600"> *</span>}</label>
                             <input
                               type="text"
                               placeholder="Ej. H3C-99281"
@@ -3906,7 +4030,7 @@
                         return (
                           <div key={idx} className={`p-2.5 rounded border text-[11px] space-y-2 ${colorFila}`}>
                             <div className="flex justify-between items-center">
-                              <span><b className="text-brand-petrol">[{it.categoria}]</b> {it.descripcion}</span>
+                              <span><b className="text-brand-petrol">[{it.categoria}]</b> {it.descripcion}{it.serieActivo ? <span className="text-amber-700 font-mono"> — S/N: {it.serieActivo}</span> : null}</span>
                               <span className="text-ink-support">Solicitado: {it.cantidadSolicitada} {it.unidad}</span>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -4057,10 +4181,62 @@
                       Cancelar
                     </button>
                     <button
+                      onClick={() => abrirModalDevolucion(oitParaConciliar)}
+                      title="Devolver al técnico con una observación, si algo falta o está mal"
+                      className="flex-1 bg-rose-500/10 hover:bg-rose-600 hover:text-white text-rose-600 border border-rose-500/30 font-bold py-2 rounded text-xs transition"
+                    >
+                      ↩️ Devolver al Técnico
+                    </button>
+                    <button
                       onClick={confirmarConciliacion}
                       className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded text-xs"
                     >
                       Guardar, Registrar Auditoría y Conciliado
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODAL: DEVOLVER OIT AL TÉCNICO (Admin/Logística) */}
+            {oitParaDevolver && (
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setOitParaDevolver(null)}>
+                <div className="bg-white border border-line-strong rounded-xl max-w-lg w-full p-6 space-y-4" onClick={e => e.stopPropagation()}>
+                  <div className="border-b border-line-soft pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-base font-bold text-rose-600">↩️ Devolver OIT al Técnico</h3>
+                      <p className="text-xs text-ink-support">OIT {oitParaDevolver.codigoOit} — {oitParaDevolver.cliente} — Técnico: <b className="text-sky-600">{oitParaDevolver.tecnicoNombre}</b></p>
+                    </div>
+                    <button onClick={() => setOitParaDevolver(null)} className="text-ink-support hover:text-ink-primary text-lg">✕</button>
+                  </div>
+
+                  <p className="text-xs text-ink-secondary">
+                    Indique qué falta o qué error encontró (por ejemplo: cantidades que no coinciden, ítem sin declarar, número de serie incorrecto, etc.). El técnico recibirá este comentario por correo y WhatsApp, y la OIT volverá a estado <b>DESPACHADO</b> para que corrija su Liquidación de Campo.
+                  </p>
+
+                  <div>
+                    <label className="block text-xs text-ink-support mb-1">Observación / Comentario <span className="text-rose-600">*</span></label>
+                    <textarea
+                      value={comentarioDevolucion}
+                      onChange={e => setComentarioDevolucion(e.target.value)}
+                      rows={4}
+                      placeholder="Ej: Falta declarar la cantidad instalada del ítem 'Cable UTP Cat6'. Verificar número de serie del router, no coincide con el despachado."
+                      className="w-full bg-white border border-line-strong rounded p-2 text-xs text-ink-primary"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-3 border-t border-line-soft">
+                    <button
+                      onClick={() => setOitParaDevolver(null)}
+                      className="flex-1 bg-surface-alt hover:bg-surface-secondary text-ink-secondary py-2 rounded text-xs font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={confirmarDevolucionTecnico}
+                      className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 rounded text-xs"
+                    >
+                      Confirmar Devolución
                     </button>
                   </div>
                 </div>
@@ -4579,7 +4755,7 @@
                       </div>
                       {plEditItemCat !== 'MATERIAL' ? (
                         <div>
-                          <label className="block text-ink-support mb-0.5">{etiquetaSerieCategoria(plEditItemCat)}</label>
+                          <label className="block text-ink-support mb-0.5">{etiquetaSerieCategoria(plEditItemCat)}{plEditItemCat === 'EQUIPO' && <span className="text-rose-600"> *</span>}</label>
                           <input
                             type="text"
                             placeholder="Ej. H3C-99281"
